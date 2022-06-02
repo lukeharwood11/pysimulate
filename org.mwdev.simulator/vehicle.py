@@ -90,12 +90,36 @@ class Vehicle(ABC, Sprite):
         """
         pass
 
-    def rotate(self, left=False, right=False):
+    def turn(self, left=False, right=False):
         """
         rotate the vehicle and update the image (update the velocity 'angle' attribute)
         :param left: whether the car is turning left
         :param right: whether the car is turning right
         :return: nothing
+        """
+        pass
+
+    def get_input(self) -> list[int]:
+        """
+        retrieve the inputs for the vehicle as a list of (normalized) floats representing the distance
+        of the vehicle to the nearby walls.
+        :return:
+        """
+        return [s.value/self._sensor_depth if s != 0 else 0 for s in self.sensors]
+
+    @abstractmethod
+    def accelerate(self):
+        """
+        Make the car go faster, or don't
+        :return:
+        """
+        pass
+
+    @abstractmethod
+    def brake(self):
+        """
+        Make the car go slower, or don't
+        :return:
         """
         pass
 
@@ -140,7 +164,7 @@ class Sensor:
         :param sensor_depth: The length of the sensor
         :param angle: the angle (relative to the agent)
         :param default_val: the value of the sensor if the sensor doesn't encounter an object.
-                            If left None, the default_val param is set to the sensor_depth
+                            If left None, the default_val param is set to the sensor_depth.
         :param offset: the value to offset the creation of the sensor (assuming the sensor will originate from the
                        top-left corner of the vehicle)
         :param line_width: the width of the sensor line when visible
@@ -156,6 +180,7 @@ class Sensor:
         self.offset = offset
         self.line_width = line_width
         self.line_color = line_color
+        self.value = 1  # sensor_depth / sensor_depth
 
     def generate_image(self):
         pass

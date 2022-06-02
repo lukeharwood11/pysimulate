@@ -81,7 +81,7 @@ class Simulation(ABC):
         - track border
         - track bg
         - track rewards
-        :return: the tracks in the order 'border, background (design), rewards'
+        :return: the path to the tracks in the order 'border, background (design), rewards'
         """
         pass
 
