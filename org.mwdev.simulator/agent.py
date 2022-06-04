@@ -11,7 +11,7 @@ class Agent(ABC):
     - Abstract agent class
     """
     @abstractmethod
-    def update(self, inputs, keys_pressed=None) -> int:
+    def update(self, inputs, keys_pressed=None) -> list[int]:
         """
         - Given input from the simulation make a decision
         :param inputs:

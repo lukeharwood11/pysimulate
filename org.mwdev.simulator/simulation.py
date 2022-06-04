@@ -3,7 +3,24 @@ from abc import ABC, abstractmethod
 from time import time
 import pygame
 
-from vehicle import Vehicle
+
+class Label:
+
+    def __init__(self, position, text="", size=12, font=None, color=(0, 0, 0), background=None, anti_alias=False):
+        self.font = font
+        self.text = text
+        self.color = color
+        self.size = size
+        self.position = position
+        self.background = background
+        self.anti_alias = anti_alias
+
+        if font is None:
+            self.font = pygame.font.Font(pygame.font.get_default_font(), self.size)
+
+    def render(self, window):
+        text = self.font.render(self.text, color=self.color, antialias=self.anti_alias, background=self.background)
+        window.blit(text, self.position)
 
 
 class Simulation(ABC):
@@ -13,7 +30,7 @@ class Simulation(ABC):
                  fps=None,
                  num_episodes=None,
                  caption: str = None,
-                 car: Vehicle = None,
+                 car=None,
                  track_offset=(0, 0),
                  screen_size=(1400, 800),
                  track_size=(1400, 800)):
@@ -61,12 +78,12 @@ class Simulation(ABC):
         # this value should be overridden by child class
         self.start_pos = (0, 0)
         # initialize car later
-        self.car: Vehicle = car
+        self.car = car
 
         # handle init
         self.init_display()
         self.init_car_start_pos()
-        self.convert_images()       # initializes the track
+        self.convert_images()  # initializes the track
 
     @abstractmethod
     def init_car_start_pos(self):
@@ -112,27 +129,35 @@ class Simulation(ABC):
         main 'game-loop' for simulation
         :return: None
         """
+        # - - - - - - - - - - - - - - - - - - - - - - - - - -
+        print("Begin simulation init...")
         run = True
         pygame.display.set_caption(self._caption)
+        if self.car is not None:
+            print("Initializing car image conversion...")
+            self.car.image = self.car.image.convert()
+            self.car.reset(simulation=self)
+        print("Done!")
+        # - - - - - - - - - - - - - - - - - - - - - - - - - -
         while run:
-            t = self.current_timestamp
-            self.current_timestamp = time()
-            if t is not None:
-                self.calculate_fps(self.current_timestamp - t)
-            if self._fps is not None:
+            if self._fps is not None and run:
                 self._clock.tick(self._fps)
-
-            keys_pressed = pygame.key.get_pressed()
-            self.update_display(keys_pressed)
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     run = False
                     if self.car is not None:
+                        print("Saving Car...")
                         self.car.save_car()
+            t = self.current_timestamp
+            self.current_timestamp = time()
+            if t is not None:
+                self.calculate_fps(self.current_timestamp - t)
+            keys_pressed = pygame.key.get_pressed()
+            self.update_display(keys_pressed)
 
     def calculate_fps(self, time_elapsed):
         # convert to seconds (from milliseconds)
-        t = time_elapsed / 1000
+        t = time_elapsed
         # save to attribute
         self._calc_fps = round(1 / t)
 
@@ -141,15 +166,16 @@ class Simulation(ABC):
         :param keys_pressed:
         :return:
         """
-        self._window.fill((255, 255, 255))
+        self.window.fill((0, 0, 0))
         if self._track_bg is not None:
-            self._window.blit(self._track_bg, self._track_offset)
+            self.window.blit(self._track_bg, self._track_offset)
         if self._track_rewards is not None and self._debug:
-            self._window.blit(self._track_rewards, self._track_offset)
-        self.car.update_sensors(self._window, self)
+            self.window.blit(self._track_rewards, self._track_offset)
+        self.car.update_sensors(self.window, self)
         reward = self.handle_reward()
         collision = self.handle_collision()
         self.car.step(reward, collision, keys_pressed)
+        self.car.update(simulation=self)
         self.update_debug_display(reward, collision)
         self.op_display()
 
@@ -176,7 +202,7 @@ class Simulation(ABC):
         Called whenever the car crashes and the simulation starts over
         :return:
         """
-        self.car.reset()
+        self.car.reset(simulation=self)
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Handlers for display/collision detection
@@ -199,6 +225,7 @@ class Simulation(ABC):
         if self._track_rewards is not None:
             return True
         return False
+
     # - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Display for application aesthetics and debugging
     # - - - - - - - - - - - - - - - - - - - - - - - - - -

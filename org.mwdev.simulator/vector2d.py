@@ -75,3 +75,9 @@ class Velocity(Vector2D):
         else:
             return (self.x + sin(radians(self.angle - angle)) * distance) + offset[0], \
                    (self.y + cos(radians(self.angle - angle)) * distance + offset[1])
+
+    def reset_velocity(self, x=0, y=0, angle=0, speed=0):
+        self.x = x
+        self.y = y
+        self.angle = angle
+        self.speed = speed

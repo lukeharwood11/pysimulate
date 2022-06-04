@@ -3,7 +3,7 @@ from abc import ABC
 from agent import Agent
 from simulation import Simulation
 from vehicle import Vehicle, Sensor
-from pygame import (K_UP, K_DOWN, K_LEFT, K_RIGHT)
+from pygame import (K_UP, K_DOWN, K_LEFT, K_RIGHT, transform)
 import os
 
 
@@ -32,7 +32,7 @@ class DefaultSimulation(Simulation, ABC):
         sets the start position of the car
         :return:
         """
-        self._start_pos = (800, 120)
+        self.start_pos = (1000, 100)
 
     def init_track(self) -> (str, str, str):
         """
@@ -44,49 +44,72 @@ class DefaultSimulation(Simulation, ABC):
         :return: the path to the tracks in the order 'border, background (design), rewards'
         """
         return \
-            os.path.join("assets", "track-border.png"), \
-            os.path.join("assets", "track.png"), \
-            os.path.join("assets", "track-rewards.png")
+            os.path.join("assets", "track1-border.png"), \
+            os.path.join("assets", "track1.png"), \
+            os.path.join("assets", "track1-rewards.png")
 
 
 class Car(Vehicle, ABC):
 
-    def __init__(self, driver, sensor_depth, debug=False, acceleration_multiplier=1.2):
+    def __init__(self, driver, sensor_depth, debug=False, acceleration_multiplier=.5):
         super(Car, self).__init__(
-            image_path=os.path.join("assets", "car.png"),
+            image_path=os.path.join("assets", "grey-car.png"),
             driver=driver,
             scale=1,
             debug=debug,
             sensor_depth=sensor_depth
         )
         self.acceleration_multiplier = acceleration_multiplier
+        self.model_path = os.path.join("assets", "models")
+
+    def configure_image(self):
+        self.image = transform.rotate(self.image, -90)
 
     def save_car(self):
         """
         - Should save the model of the driver and any other important information
         :return: None
         """
-        pass
+        if self.driver is not None:
+            if not os.path.exists(self.model_path):
+                os.mkdir(self.model_path)
+            self.driver.save_model(self.model_path)
 
-    def reset(self):
+    def reset(self, simulation):
         """
         - Resets the car properties, so it is ready for another episode
         :return: None
         """
-        pass
+        self.velocity.reset_velocity(
+            x=simulation.start_pos[0],
+            y=simulation.start_pos[1],
+            angle=180,
+            speed=0
+        )
 
     def accelerate(self):
         """
-        :return:
+        Accelerate the car
+        :return: None
         """
-        self.velocity.speed += self.acceleration_multiplier
-        pass
+        if self.velocity.speed < self.max_speed:
+            self.velocity.speed += self.acceleration_multiplier
+
+    def turn(self, left=False, right=False):
+        if left:
+            self.velocity.turn(self.velocity.speed * .6)
+        if right:
+            self.velocity.turn(self.velocity.speed * -.6)
 
     def brake(self):
         """
-        :return:
+        Slow down the car or stop if the speed is less than a threshold value
+        :return: None
         """
-        pass
+        if self.velocity.speed > 1:
+            self.velocity.speed -= self.acceleration_multiplier
+        else:
+            self.velocity.speed = 0
 
     def step(self, reward: bool, collision: bool, keys_pressed):
         """
@@ -101,14 +124,21 @@ class Car(Vehicle, ABC):
         i = self.get_input()
         i.extend([1 if collision else 0, 1 if reward else 0])
         direction = self.driver.update(inputs=i, keys_pressed=keys_pressed)
-        if direction == 0:
+        accel = False
+        if direction.count(0) > 0:
             self.turn(left=True)
-        elif direction == 1:
+        if direction.count(1) > 0:
             self.accelerate()
-        elif direction == 2:
+            accel = True
+        if direction.count(2) > 0:
             self.turn(right=True)
-        elif direction == 3:
+        if direction.count(3) > 0:
             self.brake()
+        if not accel:
+            self.deccelerate()
+
+    def deccelerate(self):
+        self.velocity.speed = .98 * self.velocity.speed
 
 
 class GameControlDriver(Agent, ABC):
@@ -121,15 +151,17 @@ class GameControlDriver(Agent, ABC):
         """
         super().__init__(num_inputs, num_outputs)
 
-    def update(self, inputs, keys_pressed=None) -> int:
+    def update(self, inputs, keys_pressed=None) -> list[int]:
+        ret = []
         if keys_pressed[K_LEFT]:
-            return 0
+            ret.append(0)
         if keys_pressed[K_UP]:
-            return 1
+            ret.append(1)
         if keys_pressed[K_RIGHT]:
-            return 2
+            ret.append(2)
         if keys_pressed[K_DOWN]:
-            return 3
+            ret.append(3)
+        return ret
 
     def save_model(self, path):
         """
@@ -154,7 +186,7 @@ def main():
         driver=None,
         sensor_depth=200,
         debug=True,
-        acceleration_multiplier=1.2
+        acceleration_multiplier=.5
     )
     simulation = DefaultSimulation(
         debug=True,

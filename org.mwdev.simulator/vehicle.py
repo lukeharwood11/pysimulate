@@ -10,7 +10,7 @@ from vector2d import Vector2D, Velocity
 from simulation import Simulation
 
 
-class Vehicle(ABC, Sprite):
+class Vehicle(ABC):
     """
     The car class is responsible for handling the inputs
     and moving through the simulation
@@ -21,7 +21,8 @@ class Vehicle(ABC, Sprite):
                  driver: Agent = None,
                  scale: int = 1,
                  debug: bool = False,
-                 sensor_depth: int = 100):
+                 sensor_depth: int = 100,
+                 max_speed: int = 20):
         # public attributes
         super().__init__()
         self.driver = driver
@@ -36,13 +37,16 @@ class Vehicle(ABC, Sprite):
         self._sensor_depth = sensor_depth
         # vehicle info
         self.velocity = Velocity(x=0, y=0, angle=0)
+        self.max_speed = max_speed
+        self.image = None
+        self.init_car_image()
 
     def init_car_image(self):
-        self.image = image.load(self._image_path).convert()
+        self.image = image.load(self._image_path)
         self.configure_image()
         # todo optimize image processing
         # for i in range(359):
-        #     pass
+        #     self._image_angle_cache.append(self.rotate_center(i))
 
     # Unimplemented Feature
     def rotate_center(self, angle):
@@ -62,9 +66,9 @@ class Vehicle(ABC, Sprite):
         :param top_left: the top left of the vehicle
         :return: None
         """
-        rotated_image = transform.rotate(self.image, self.velocity.angle)
+        # TODO implement cache using angle
+        rotated_image = transform.rotate(self.image, self.velocity.angle).convert_alpha()
         new_rect = rotated_image.get_rect(center=self.image.get_rect(topleft=top_left).center)
-        self.image = rotated_image
         window.blit(rotated_image, new_rect.topleft + (20, 20))
 
     def update(self, simulation: Simulation):
@@ -74,7 +78,7 @@ class Vehicle(ABC, Sprite):
         :return: None
         """
         window = simulation.window
-        # account for reoccurring events
+        # account for reoccurring events (such as velocity update)
         self.update_pos()
         self.blit_rotate_center(window, (self.velocity.x, self.velocity.y))
 
@@ -117,19 +121,6 @@ class Vehicle(ABC, Sprite):
                                  end_pos=(s.coords[2], s.coords[3]),
                                  width=s.line_width)
 
-    def turn(self, left=False, right=False):
-        """
-        - For custom operation override this method
-        rotate the vehicle and update the image (update the velocity 'angle' attribute)
-        :param left: whether the car is turning left
-        :param right: whether the car is turning right
-        :return: None
-        """
-        if left:
-            self.velocity.turn(5)
-        if right:
-            self.velocity.turn(5)
-
     def get_input(self) -> list[int]:
         """
         retrieve the inputs for the vehicle as a list of (normalized) floats representing the distance
@@ -142,7 +133,7 @@ class Vehicle(ABC, Sprite):
     def configure_image(self):
         """
         - perform transformations to vehicle
-        - configure 'zero-position'
+        - configure 'zero-angle-position' and sizing
         :return:
         """
         pass
@@ -164,6 +155,17 @@ class Vehicle(ABC, Sprite):
         pass
 
     @abstractmethod
+    def turn(self, left=False, right=False):
+        """
+        - For custom operation override this method
+        rotate the vehicle and update the image (update the velocity 'angle' attribute)
+        :param left: whether the car is turning left
+        :param right: whether the car is turning right
+        :return: None
+        """
+        pass
+
+    @abstractmethod
     def save_car(self):
         """
         - Should save the model of the driver and any other important information
@@ -172,7 +174,7 @@ class Vehicle(ABC, Sprite):
         pass
 
     @abstractmethod
-    def reset(self):
+    def reset(self, simulation: Simulation):
         """
         - Resets the car properties, so it is ready for another episode
         :return: None
