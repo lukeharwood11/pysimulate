@@ -2,7 +2,7 @@ from math import sin, cos, tan, sqrt, radians, degrees
 import numpy as np
 
 
-class Vector:
+class Vector2D:
     """
     - Convenience class to hold 2d data
     """
@@ -21,23 +21,24 @@ class Vector:
         """
         :param other: Vector
         :param offset: offset of current vector
-        :return: the distance between the two points
+        :return: the distance between the two points or None if other is None
         """
         if other is None:
             return None
         else:
             dy = other.y - (self.y + offset[1])
             dx = other.x - (self.x + offset[0])
-            return Vector.calc_magnitude(dx, dy)
+            return Vector2D.calc_magnitude(dx, dy)
 
 
-class Velocity(Vector):
+class Velocity(Vector2D):
 
     def __init__(self, speed=0, x=0, y=0, angle=0):
         """
-        :param dx: the current change in x
-        :param dy: the current change in y
+        :param x: the current x position
+        :param y: the current y position
         :param angle: the current angle the object is moving in
+        :param speed: the current speed
         """
         super(Velocity, self).__init__(x, y)
         self.angle = angle
@@ -46,17 +47,17 @@ class Velocity(Vector):
     def turn(self, da):
         """
         :param da: the change in the angle
-        :return: nothing
+        :return: None
         """
         self.angle += da
 
-    def transform(self, distance):
+    def transform(self):
         """
         :param distance:
         :return:
         """
-        dx = cos(radians(self.angle)) * distance
-        dy = -sin(radians(self.angle)) * distance
+        dx = cos(radians(self.angle)) * self.speed
+        dy = -sin(radians(self.angle)) * self.speed
         self.x += dx
         self.y += dy
 

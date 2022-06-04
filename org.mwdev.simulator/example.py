@@ -51,7 +51,7 @@ class DefaultSimulation(Simulation, ABC):
 
 class Car(Vehicle, ABC):
 
-    def __init__(self, driver, sensor_depth, debug=False):
+    def __init__(self, driver, sensor_depth, debug=False, acceleration_multiplier=1.2):
         super(Car, self).__init__(
             image_path=os.path.join("assets", "car.png"),
             driver=driver,
@@ -59,18 +59,19 @@ class Car(Vehicle, ABC):
             debug=debug,
             sensor_depth=sensor_depth
         )
+        self.acceleration_multiplier = acceleration_multiplier
 
     def save_car(self):
         """
         - Should save the model of the driver and any other important information
-        :return: nothing
+        :return: None
         """
         pass
 
     def reset(self):
         """
         - Resets the car properties, so it is ready for another episode
-        :return: nothing
+        :return: None
         """
         pass
 
@@ -78,6 +79,7 @@ class Car(Vehicle, ABC):
         """
         :return:
         """
+        self.velocity.speed += self.acceleration_multiplier
         pass
 
     def brake(self):
@@ -94,7 +96,7 @@ class Car(Vehicle, ABC):
         :param keys_pressed: pygame keys pressed
         :param reward: whether the car is over a reward
         :param collision: whether the car is over a collision
-        :return: nothing
+        :return: None
         """
         i = self.get_input()
         i.extend([1 if collision else 0, 1 if reward else 0])
@@ -114,8 +116,8 @@ class GameControlDriver(Agent, ABC):
     def __init__(self, num_inputs, num_outputs):
         """
         Default controls for human driver
-        :param num_inputs:
-        :param num_outputs:
+        :param num_inputs: the number of inputs (sensors/collision/reward)
+        :param num_outputs: the number of outputs (driver-actions/left/right/etc.)
         """
         super().__init__(num_inputs, num_outputs)
 
@@ -131,7 +133,7 @@ class GameControlDriver(Agent, ABC):
 
     def save_model(self, path):
         """
-        do nothing
+        do None
         :param path: n/a
         :return: n/a
         """
@@ -139,7 +141,7 @@ class GameControlDriver(Agent, ABC):
 
     def load_model(self, path):
         """
-        do nothing
+        do None
         :param path: n/a
         :return: n/a
         """
@@ -147,10 +149,29 @@ class GameControlDriver(Agent, ABC):
 
 
 def main():
-    car = Car()
-    simulation = DefaultSimulation()
-    driver = GameControlDriver()
-    pass
+    NUM_SENSORS = 10
+    car = Car(
+        driver=None,
+        sensor_depth=200,
+        debug=True,
+        acceleration_multiplier=1.2
+    )
+    simulation = DefaultSimulation(
+        debug=True,
+        fps=60,
+        num_episodes=None,
+        caption="Default Simulation",
+        car=car,
+        track_offset=(0, 0),
+        screen_size=(1400, 800),
+        track_size=(1400, 800)
+    )
+    driver = GameControlDriver(
+        num_inputs=NUM_SENSORS,
+        num_outputs=4
+    )
+    car.driver = driver
+    simulation.simulate()
 
 
 if __name__ == "__main__":

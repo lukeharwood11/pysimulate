@@ -6,7 +6,7 @@ from pygame import image
 from pygame.sprite import Sprite
 from pygame import transform
 from agent import Agent
-from vector import Vector, Velocity
+from vector2d import Vector2D, Velocity
 from simulation import Simulation
 
 
@@ -39,6 +39,7 @@ class Vehicle(ABC, Sprite):
 
     def init_car_image(self):
         self.image = image.load(self._image_path).convert()
+        self.configure_image()
         # todo optimize image processing
         # for i in range(359):
         #     pass
@@ -48,7 +49,7 @@ class Vehicle(ABC, Sprite):
         """
         Called at initialization to populate the self._image_angle_cache with rotated images
         :param angle: the angle to add to cache
-        :return: nothing
+        :return: None
         """
         rotated_image = transform.rotate(self.image, angle)
         new_rect = rotated_image.get_rect(center=self.image.get_rect(topleft=self.rect.topleft).center)
@@ -59,12 +60,26 @@ class Vehicle(ABC, Sprite):
         Rotate the image at the center and blit to the 'window' surface
         :param window: pygame.surface.Surface
         :param top_left: the top left of the vehicle
-        :return: nothing
+        :return: None
         """
         rotated_image = transform.rotate(self.image, self.velocity.angle)
         new_rect = rotated_image.get_rect(center=self.image.get_rect(topleft=top_left).center)
         self.image = rotated_image
         window.blit(rotated_image, new_rect.topleft + (20, 20))
+
+    def update(self, simulation: Simulation):
+        """
+        update necessary data and send back to simulation
+        :param simulation: the simulation the vehicle exists in
+        :return: None
+        """
+        window = simulation.window
+        # account for reoccurring events
+        self.update_pos()
+        self.blit_rotate_center(window, (self.velocity.x, self.velocity.y))
+
+    def update_pos(self):
+        self.velocity.transform()
 
     @staticmethod
     def scale(img, factor):
@@ -86,18 +101,34 @@ class Vehicle(ABC, Sprite):
         Calculate the values for the sensors of the vehicle
         :param window: the pygame window
         :param simulation: the simulation that the car is functioning in
-        :return: nothing
+        :return: None
         """
-        pass
+        # get (x1,y1,x2,y2) tuples for all sensor positions
+        s = [sensor.update(window=window, simulation=simulation) for sensor in self.sensors]
+        if self._debug:
+            self.display_sensor(window=window)
+
+    def display_sensor(self, window: pygame.surface.Surface):
+        for s in self.sensors:
+            if s.coords is not None:
+                pygame.draw.line(surface=window,
+                                 color=s.line_color,
+                                 start_pos=(s.coords[0], s.coords[1]),
+                                 end_pos=(s.coords[2], s.coords[3]),
+                                 width=s.line_width)
 
     def turn(self, left=False, right=False):
         """
+        - For custom operation override this method
         rotate the vehicle and update the image (update the velocity 'angle' attribute)
         :param left: whether the car is turning left
         :param right: whether the car is turning right
-        :return: nothing
+        :return: None
         """
-        pass
+        if left:
+            self.velocity.turn(5)
+        if right:
+            self.velocity.turn(5)
 
     def get_input(self) -> list[int]:
         """
@@ -105,7 +136,16 @@ class Vehicle(ABC, Sprite):
         of the vehicle to the nearby walls.
         :return:
         """
-        return [s.value/self._sensor_depth if s != 0 else 0 for s in self.sensors]
+        return [s.value / self._sensor_depth if s != 0 else 0 for s in self.sensors]
+
+    @abstractmethod
+    def configure_image(self):
+        """
+        - perform transformations to vehicle
+        - configure 'zero-position'
+        :return:
+        """
+        pass
 
     @abstractmethod
     def accelerate(self):
@@ -127,15 +167,15 @@ class Vehicle(ABC, Sprite):
     def save_car(self):
         """
         - Should save the model of the driver and any other important information
-        :return: nothing
+        :return: None
         """
         pass
 
     @abstractmethod
     def reset(self):
         """
-        - Resets the car properties so it is ready for another episode
-        :return: nothing
+        - Resets the car properties, so it is ready for another episode
+        :return: None
         """
         pass
 
@@ -146,7 +186,7 @@ class Vehicle(ABC, Sprite):
         :param keys_pressed: pygame keys pressed
         :param reward: whether the car is over a reward
         :param collision: whether the car is over a collision
-        :return: nothing
+        :return: None
         """
         pass
 
@@ -181,9 +221,7 @@ class Sensor:
         self.line_width = line_width
         self.line_color = line_color
         self.value = 1  # sensor_depth / sensor_depth
-
-    def generate_image(self):
-        pass
+        self.coords = None
 
     def update(self, window: pygame.surface.Surface, simulation: Simulation):
         """
@@ -204,6 +242,7 @@ class Sensor:
 
         # update the value of the sensor
         self.update_value(simulation=simulation)
+        self.coords = x1, y1, x2, y2
         # return the line coordinates
         return x1, y1, x2, y2
 
@@ -214,8 +253,16 @@ class Sensor:
         the distance between the collision and the vehicle
         Note: Error will be thrown if the track_border is None
         :param simulation: Simulation
-        :return: nothing
+        :return: None
         """
-        track_mask = simulation.track_mask
-        mask = pygame.mask.from_surface()
-
+        car_v = simulation.car.velocity
+        border_mask = simulation.border_mask
+        mask = pygame.mask.from_surface(self.surf)
+        pos = mask.overlap(other=border_mask, offset=(0, 0))
+        if pos is None:
+            self.value = self.default_val
+        else:
+            self.value = car_v.distance_between(
+                other=Vector2D(x=pos[0], y=pos[1]),
+                offset=(0, 0)
+            )

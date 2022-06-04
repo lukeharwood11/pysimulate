@@ -25,7 +25,7 @@ class Agent(ABC):
         """
         - Save the brain of the agent to some file (or don't)
         :param path: the path to the model
-        :return: nothing
+        :return: None
         """
         pass
 
@@ -34,6 +34,6 @@ class Agent(ABC):
         """
         - Load the brain of the agent from some file (or don't)
         :param path: the path to the model
-        :return: nothing
+        :return: None
         """
         pass

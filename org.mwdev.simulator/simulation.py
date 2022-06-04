@@ -30,22 +30,19 @@ class Simulation(ABC):
                             - None if the simulator runs forever
         """
         pygame.init()
-        # public attributes
-        # initialize car later
-        self.car: Vehicle = car
+
         # private attributes
         self._screen_dim = screen_size
         self._track_dim = track_size
-        self._window = pygame.display.set_mode(self._screen_dim)
         self._fps = fps
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         # track information
-        self._start_pos = None
+        self.start_pos = None
         self._track_border = None
         self.border_mask = None
         self._track_bg = None
         self._track_rewards = None
-        self._rewards_mask = None
+        self.rewards_mask = None
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         self._clock = pygame.time.Clock()
         self._iteration_num = 0
@@ -53,13 +50,19 @@ class Simulation(ABC):
         self._max_episodes = num_episodes
         self._caption = caption
         self._track_offset = track_offset
-        # this value should be overridden by child class
-        self._start_pos = (0, 0)
         # a list of rects that have been updated since the last screen refresh
         self._rect_changed = []
         # helper attribute for calculating the actual fps
         self.current_timestamp = None
         self._calc_fps = 0
+
+        # public attributes
+        self.window = pygame.display.set_mode(self._screen_dim)
+        # this value should be overridden by child class
+        self.start_pos = (0, 0)
+        # initialize car later
+        self.car: Vehicle = car
+
         # handle init
         self.init_display()
         self.init_car_start_pos()
@@ -96,9 +99,9 @@ class Simulation(ABC):
         self._track_rewards = pygame.image.load(rewards).convert_alpha()
 
         if border is not None:
-            # create a border mask and then create a rewards mask
-            pass
-
+            self.border_mask = pygame.mask.from_surface(self._track_border)
+        if rewards is not None:
+            self.rewards_mask = pygame.mask.from_surface(self._track_rewards)
 
     def init_display(self):
         if self._caption is None:
@@ -107,7 +110,7 @@ class Simulation(ABC):
     def simulate(self):
         """
         main 'game-loop' for simulation
-        :return: nothing
+        :return: None
         """
         run = True
         pygame.display.set_caption(self._caption)
