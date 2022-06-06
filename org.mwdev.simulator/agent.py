@@ -16,7 +16,8 @@ class Agent(ABC):
         - Given input from the simulation make a decision
         :param inputs:
         :param keys_pressed:
-        :return direction: int [0 - num_outputs)
+        :return direction: list[int] a list of files with length [0 - num_outputs), 
+                           every entry should correspond with a given output.
         """
         pass
 
