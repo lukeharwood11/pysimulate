@@ -215,7 +215,7 @@ class SensorBuilder:
         self.pointer = pointer
         self.default_value = default_value
         self.car_size = car_size
-        self.masks = []  # list of 360 masks representing all angles
+        self.masks = []  # list of 359 masks representing all angles
 
         self.offset = self.car_size[0] / 2, self.car_size[1] / 2
         self.generate_masks()
