@@ -6,21 +6,54 @@ import pygame
 
 class Label:
 
-    def __init__(self, position, text="", size=12, font=None, color=(0, 0, 0), background=None, anti_alias=False):
+    def __init__(self, position, text="", size=12, font=None, color=(0, 0, 0), refresh_count=None, background=None, anti_alias=False):
+        """
+        - Custom label class for rendering labels
+        :param position:
+        :param text:
+        :param size:
+        :param font:
+        :param color:
+        :param refresh_count:
+        :param background:
+        :param anti_alias:
+        """
         self.font = font
+        self.original_text = text
         self.text = text
         self.color = color
         self.size = size
         self.position = position
         self.background = background
         self.anti_alias = anti_alias
+        self.refresh_count = refresh_count
+        self.current_count = 0
 
         if font is None:
             self.font = pygame.font.Font(pygame.font.get_default_font(), self.size)
 
     def render(self, window):
-        text = self.font.render(self.text, color=self.color, antialias=self.anti_alias, background=self.background)
+        text = self.font.render(self.text, self.anti_alias, self.color, self.background)
         window.blit(text, self.position)
+
+    def append_text(self, text, refresh_count=None):
+        if refresh_count is not None:
+            self.refresh_count = refresh_count
+        if self.refresh_count is None or self.current_count >= self.refresh_count:
+            self.text = self.original_text + text
+            self.current_count = 0
+        else:
+            self.current_count += 1
+
+    def update_text(self, text, refresh_count=None):
+        if refresh_count is not None:
+            self.refresh_count = refresh_count
+        if self.refresh_count is None or self.current_count >= self.refresh_count:
+            self.original_text = text
+            self.text = text
+        else:
+            self.current_count += 1
+
 
 
 class Simulation(ABC):
@@ -46,6 +79,7 @@ class Simulation(ABC):
         :param num_episodes: the number of episodes (crashes) before the simulation dies
                             - None if the simulator runs forever
         """
+        self.fps_label = None
         pygame.init()
 
         # private attributes
@@ -82,6 +116,7 @@ class Simulation(ABC):
 
         # handle init
         self.init_display()
+        self.init_fps_label()
         self.init_car_start_pos()
         self.convert_images()  # initializes the track
 
@@ -111,9 +146,12 @@ class Simulation(ABC):
         :return:
         """
         border, track, rewards = self.init_track()
-        self._track_border = pygame.image.load(border).convert_alpha()
+        self._track_border = pygame.image.load(border)
+        self._track_border = pygame.transform.smoothscale(self._track_border, self._track_dim).convert_alpha()
         self._track_bg = pygame.image.load(track).convert()
-        self._track_rewards = pygame.image.load(rewards).convert_alpha()
+        self._track_bg = pygame.transform.smoothscale(self._track_bg, self._track_dim).convert()
+        self._track_rewards = pygame.image.load(rewards)
+        self._track_rewards = pygame.transform.smoothscale(self._track_rewards, self._track_dim).convert_alpha()
 
         if border is not None:
             self.border_mask = pygame.mask.from_surface(self._track_border)
@@ -123,6 +161,9 @@ class Simulation(ABC):
     def init_display(self):
         if self._caption is None:
             self._caption = "Racing Simulation"
+
+    def init_fps_label(self):
+        self.fps_label = Label((10, 10), "FPS: 0", size=30, font=None, color=(0, 0, 0), background=None, anti_alias=False)
 
     def simulate(self):
         """
@@ -173,9 +214,17 @@ class Simulation(ABC):
             self.window.blit(self._track_rewards, self._track_offset)
         self.car.update_sensors(self.window, self)
         reward = self.handle_reward()
+        if reward:
+            pass
         collision = self.handle_collision()
+        if collision:
+            print("YAY")
+            self.reset()
         self.car.step(reward, collision, keys_pressed)
         self.car.update(simulation=self)
+        print(self.car.get_input())
+        self.fps_label.append_text(str(self._calc_fps), self._calc_fps/2)
+        self.fps_label.render(self.window)
         self.update_debug_display(reward, collision)
         self.op_display()
 
@@ -213,8 +262,15 @@ class Simulation(ABC):
         Only works if the track_border is not None
         :return: whether the vehicle hit a wall
         """
-        if self._track_border is not None:
-            return True
+        if self._track_border is not None \
+                and self.car is not None \
+                and self.car.current_image is not None:
+            car_mask = pygame.mask.from_surface(self.car.image)
+            x, y = (self.car.velocity.x + (.5 * self.car.image.get_width()),
+                    self.car.velocity.y + (.5 * self.car.image.get_height()))
+            col = self.border_mask.overlap(car_mask, (x, y))
+            if col is not None:
+                return True
         return False
 
     def handle_reward(self) -> bool:
@@ -222,8 +278,15 @@ class Simulation(ABC):
         Only works if the track_rewards is not None
         :return: whether the vehicle is touching a reward
         """
-        if self._track_rewards is not None:
-            return True
+        if self._track_rewards is not None \
+                and self.car is not None \
+                and self.car.current_image is not None:
+            car_mask = pygame.mask.from_surface(self.car.image)
+            x, y = (self.car.velocity.x + (.5 * self.car.image.get_width()),
+                    self.car.velocity.y + (.5 * self.car.image.get_height()))
+            col = self.rewards_mask.overlap(car_mask, (x, y))
+            if col is not None:
+                return True
         return False
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - -

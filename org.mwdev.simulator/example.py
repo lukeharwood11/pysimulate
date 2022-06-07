@@ -2,7 +2,7 @@ from abc import ABC
 
 from agent import Agent
 from simulation import Simulation
-from vehicle import Vehicle, Sensor
+from vehicle import Vehicle, Sensor, SensorBuilder
 from pygame import (K_UP, K_DOWN, K_LEFT, K_RIGHT, transform)
 import os
 
@@ -32,7 +32,7 @@ class DefaultSimulation(Simulation, ABC):
         sets the start position of the car
         :return:
         """
-        self.start_pos = (1000, 100)
+        self.start_pos = (875, 100)
 
     def init_track(self) -> (str, str, str):
         """
@@ -44,9 +44,9 @@ class DefaultSimulation(Simulation, ABC):
         :return: the path to the tracks in the order 'border, background (design), rewards'
         """
         return \
-            os.path.join("assets", "track1-border.png"), \
-            os.path.join("assets", "track1.png"), \
-            os.path.join("assets", "track1-rewards.png")
+            os.path.join("assets", "track-border.png"), \
+            os.path.join("assets", "track.png"), \
+            os.path.join("assets", "track-rewards.png")
 
 
 class Car(Vehicle, ABC):
@@ -64,6 +64,7 @@ class Car(Vehicle, ABC):
 
     def configure_image(self):
         self.image = transform.rotate(self.image, -90)
+        self.image = transform.smoothscale(self.image, (34, 17))
 
     def save_car(self):
         """
@@ -182,12 +183,14 @@ class GameControlDriver(Agent, ABC):
 
 def main():
     NUM_SENSORS = 10
+
     car = Car(
         driver=None,
         sensor_depth=200,
         debug=True,
         acceleration_multiplier=.5
     )
+
     simulation = DefaultSimulation(
         debug=True,
         fps=60,
@@ -202,6 +205,20 @@ def main():
         num_inputs=NUM_SENSORS,
         num_outputs=4
     )
+    # Create Sensors
+    sb = SensorBuilder(
+        sim=simulation,
+        depth=200,
+        default_value=None,
+        color=(255, 0, 0),
+        width=2,
+        pointer=False,
+        car_size=car.image.get_size()
+    )
+    sensors = sb.generate_sensors([-15, 15, -30, 30, -45, 45, -60, 60, -75, 75, 90, 180, -180])
+    # Attach sensors to car
+    car.init_sensors(sensors=sensors)
+    # Throw driver in the vehicle
     car.driver = driver
     simulation.simulate()
 

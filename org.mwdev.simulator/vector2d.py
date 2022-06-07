@@ -49,7 +49,12 @@ class Velocity(Vector2D):
         :param da: the change in the angle
         :return: None
         """
-        self.angle += da
+        if self.angle + da >= 360:
+            self.angle = self.angle + da - 360
+        elif self.angle + da <= 0:
+            self.angle = self.angle + da + 360
+        else:
+            self.angle += da
 
     def transform(self):
         """
