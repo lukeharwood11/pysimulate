@@ -6,7 +6,7 @@ from pygame import image, draw
 from pygame.sprite import Sprite
 from pygame import transform
 from agent import Agent
-from vector2d import Vector2D, Velocity
+from vector2d import Vector2D, Velocity, Angle
 from simulation import Simulation
 
 
@@ -68,7 +68,7 @@ class Vehicle(ABC):
         :return: None
         """
         # TODO implement cache using angle
-        rotated_image = transform.rotate(self.image, self.velocity.angle).convert_alpha()
+        rotated_image = transform.rotate(self.image, self.velocity.angle.value).convert_alpha()
         new_rect = rotated_image.get_rect(center=self.image.get_rect(topleft=top_left).center)
         self.current_image = rotated_image
         x, y = new_rect.topleft[0] + self.image.get_width() / 2, new_rect.topleft[1] + self.image.get_height() / 2
@@ -115,14 +115,15 @@ class Vehicle(ABC):
         if self._debug:
             self.display_sensor(window=window)
 
+    # TODO: Display cannot just pull from one collision point
     def display_sensor(self, window: pygame.surface.Surface):
         for s in self.sensors:
             if s.coords is not None:
                 pygame.draw.line(surface=window,
                                  color=s.line_color,
                                  start_pos=(s.coords[0], s.coords[1]),
-                                 end_pos=(s.coords[2] if s.collision_point is None else s.collision_point[0],
-                                          s.coords[3] if s.collision_point is None else s.collision_point[1]),
+                                 end_pos=(s.coords[2], #if s.collision_point is None else s.collision_point[0],
+                                          s.coords[3]), #if s.collision_point is None else s.collision_point[1]),
                                  width=s.line_width)
 
     def get_input(self) -> list[int]:
@@ -221,6 +222,9 @@ class SensorBuilder:
         self.generate_masks()
 
     def generate_sensors(self, sensor_angles: list[int]) -> list:
+        """
+        - Generate a cached list of sensors
+        """
         sensors = []
         for angle in sensor_angles:
             sensors.append(
@@ -232,9 +236,13 @@ class SensorBuilder:
         return sensors
 
     def generate_masks(self):
-        vect = Velocity(angle=-90)
+        """
+        - Generate a cached list of sensor masks to be used to receive input
+        """
+        vect = Velocity()
         for angle in range(360):
-            x, y = vect.get_transform_pos(self.depth, angle=angle, offset=np.array(self.offset))
+            a = Angle.create(angle)
+            x, y = vect.get_transform_pos(self.depth, angle=a, offset=np.array(self.offset))
             surf = pygame.surface.Surface((self.depth * 2, self.depth * 2))
             draw.line(surface=surf, color=(0, 0, 0), start_pos=(self.depth, self.depth),
                       end_pos=(x + self.depth, -y + self.depth))
@@ -289,9 +297,9 @@ class Sensor:
 
         # update the value of the surface
         surface = pygame.surface.Surface(window.get_size())
-        x1 = car.velocity.x + self.offset[0]
-        y1 = car.velocity.y + self.offset[1]
-        x2, y2 = car.velocity.get_transform_pos(self.sensor_depth, self.angle, offset=self.offset)
+        x1 = car.velocity.x + self.offset[0] + 10
+        y1 = car.velocity.y + self.offset[1] + 10
+        x2, y2 = car.velocity.get_transform_pos(self.sensor_depth, Angle.create(self.angle), offset=self.offset)
         # update the value of the sensor
         self.update_value(simulation=simulation)
         self.coords = x1, y1, x2, y2
@@ -309,7 +317,7 @@ class Sensor:
         """
         car_v: Velocity = simulation.car.velocity
         border_mask = simulation.border_mask
-        index = int(car_v.angle)
+        index = 0
         mask: pygame.mask.Mask = self.sensor_builder.masks[index]
         offset = (car_v.x - self.sensor_depth + simulation.car.image.get_width() / 2,
                   car_v.y - self.sensor_depth + simulation.car.image.get_height() / 2)

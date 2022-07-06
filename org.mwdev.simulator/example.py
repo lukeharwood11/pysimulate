@@ -166,7 +166,7 @@ class GameControlDriver(Agent, ABC):
 
     def save_model(self, path):
         """
-        do None
+        do nothing
         :param path: n/a
         :return: n/a
         """
@@ -174,7 +174,7 @@ class GameControlDriver(Agent, ABC):
 
     def load_model(self, path):
         """
-        do None
+        do nothing
         :param path: n/a
         :return: n/a
         """
@@ -215,7 +215,7 @@ def main():
         pointer=False,
         car_size=car.image.get_size()
     )
-    sensors = sb.generate_sensors([-15, 15, -30, 30, -45, 45, -60, 60, -75, 75, 90, 180, -180])
+    sensors = sb.generate_sensors([0, 30])
     # Attach sensors to car
     car.init_sensors(sensors=sensors)
     # Throw driver in the vehicle
