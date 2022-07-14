@@ -18,6 +18,18 @@ class Angle:
         value += dA
         return value % 360
 
+    def greater_than_180(self):
+        return self.value > 180
+
+    def ref(self):
+        if self.value >= 180:
+            return Angle(360 - self.value)
+        return self
+
+    def __add__(self, other):
+        diff = self.value + other.value
+        return Angle(self._calc_difference(diff))
+
     def __sub__(self, other):
         diff = self.value - other.value
         return Angle(self._calc_difference(diff))
@@ -127,8 +139,14 @@ class Velocity(Vector2D):
         :param offset: the offset of the position to account for rect positioning in pygame
         :return: (x:int, y:int) -> tuple of the coordinates of the projected position
         """
-        return (self.x + (angle - self.angle).cos() * distance) + offset[0], \
-                   (self.y + (angle - self.angle).sin() * distance) + offset[1]
+        theta = self.angle - angle
+        sign = 1 if theta.greater_than_180() else -1
+        theta = theta.ref()
+
+        dy = theta.sin() * distance if 90 <= self.angle.value <= 180 or 270 < self.angle.value < 360 else theta.cos() * distance
+        dx = theta.cos() * distance if 90 <= self.angle.value <= 180 or 270 < self.angle.value < 360 else theta.cos() * distance
+
+        return self.x + (dx * sign), self.y + (dy * sign)
 
     def reset_velocity(self, x=0, y=0, angle=0, speed=0):
         self.x = x

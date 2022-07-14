@@ -215,7 +215,7 @@ def main():
         pointer=False,
         car_size=car.image.get_size()
     )
-    sensors = sb.generate_sensors([0, 30])
+    sensors = sb.generate_sensors([0, 30, -30, 60])
     # Attach sensors to car
     car.init_sensors(sensors=sensors)
     # Throw driver in the vehicle
