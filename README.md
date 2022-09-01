@@ -26,7 +26,7 @@ Same applies to building a custom vehicle from `vehicle.py` or using `DefaultVeh
 
 ## Author
 <hr> 
--MWdev
+- _Luke Harwood (lukeharwood11@gmail.com)/(harwoodl@msoe.edu)_
 
 Created on 05/24/2022
 
