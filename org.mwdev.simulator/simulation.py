@@ -6,7 +6,8 @@ import pygame
 
 class Label:
 
-    def __init__(self, position, text="", size=12, font=None, color=(0, 0, 0), refresh_count=None, background=None, anti_alias=False):
+    def __init__(self, position, text="", size=12, font=None, color=(0, 0, 0), refresh_count=None, background=None,
+                 anti_alias=False):
         """
         - Custom label class for rendering labels
         :param position:
@@ -53,7 +54,6 @@ class Label:
             self.text = text
         else:
             self.current_count += 1
-
 
 
 class Simulation(ABC):
@@ -158,12 +158,16 @@ class Simulation(ABC):
         if rewards is not None:
             self.rewards_mask = pygame.mask.from_surface(self._track_rewards)
 
+    def get_vehicle_offset(self):
+        return None if self.car is None else (self.car.image.get_width() / 2, self.car.image.get_height() / 2)
+
     def init_display(self):
         if self._caption is None:
             self._caption = "Racing Simulation"
 
     def init_fps_label(self):
-        self.fps_label = Label((10, 10), "FPS: 0", size=30, font=None, color=(0, 0, 0), background=None, anti_alias=False)
+        self.fps_label = Label((10, 10), "FPS: 0", size=30, font=None, color=(0, 0, 0), background=None,
+                               anti_alias=False)
 
     def simulate(self):
         """
@@ -189,6 +193,7 @@ class Simulation(ABC):
                     if self.car is not None:
                         print("Saving Car...")
                         self.car.save_car()
+                    break
             t = self.current_timestamp
             self.current_timestamp = time()
             if t is not None:
@@ -222,11 +227,12 @@ class Simulation(ABC):
             self.reset()
         self.car.step(reward, collision, keys_pressed)
         self.car.update(simulation=self)
-        print(self.car.velocity.angle)
+        # print(self.car.velocity.angle)
         # print(self.car.get_input())
-        self.fps_label.append_text(str(self._calc_fps), self._calc_fps/2)
+        self.fps_label.append_text(str(self._calc_fps), self._calc_fps / 2)
         self.fps_label.render(self.window)
         self.update_debug_display(reward, collision)
+
         self.op_display()
 
     # TODO implement

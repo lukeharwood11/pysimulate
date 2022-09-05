@@ -23,12 +23,12 @@ class Angle:
 
     def ref(self):
         if self.value >= 180:
-            return Angle(360 - self.value)
+            return Angle((360 - self.value) % 360)
         return self
 
     def __add__(self, other):
         diff = self.value + other.value
-        return Angle(self._calc_difference(diff))
+        return Angle(diff % 360)
 
     def __sub__(self, other):
         diff = self.value - other.value
@@ -67,6 +67,10 @@ class Angle:
     def tan(self):
         return tan(radians(self.value))
 
+    def round(self):
+        v = round(self.value)
+        return Angle(v if v != 360 else 0)
+
     @staticmethod
     def create(angle):
         return Angle(angle % 360)
@@ -76,6 +80,7 @@ class Vector2D:
     """
     - Convenience class to hold 2d data
     """
+
     def __init__(self, x, y):
         self.x = x
         self.y = y
@@ -85,7 +90,7 @@ class Vector2D:
 
     @staticmethod
     def calc_magnitude(x, y):
-        return sqrt(x**2 + y**2)
+        return sqrt(x ** 2 + y ** 2)
 
     def distance_between(self, other, offset=np.array([0, 0])) -> float or None:
         """
@@ -99,6 +104,17 @@ class Vector2D:
             dy = other.y - (self.y + offset[1])
             dx = other.x - (self.x + offset[0])
             return Vector2D.calc_magnitude(dx, dy)
+
+    @staticmethod
+    def point_at_angle(distance, angle: Angle, offset=np.array([0, 0])):
+        """
+        Projects a point [distance] length away at an [angle] relative to the current direction of the vector
+        :param distance: distance of the point
+        :param angle: angle relative to the current angle of the car
+        :param offset: the offset of the position to account for rect positioning in pygame
+        :return: (x:int, y:int) -> tuple of the coordinates of the projected position
+        """
+        return np.array([angle.cos() * distance, angle.sin() * distance]) + offset
 
 
 class Velocity(Vector2D):
@@ -130,23 +146,6 @@ class Velocity(Vector2D):
         dy = -sin(radians(self.angle.value)) * self.speed
         self.x += dx
         self.y += dy
-
-    def get_transform_pos(self, distance, angle: Angle, offset=np.array([0, 0])):
-        """
-        Projects a point [distance] length away at an [angle] relative to the current direction of the vector
-        :param distance: distance of the point
-        :param angle: angle relative to the current angle of the car
-        :param offset: the offset of the position to account for rect positioning in pygame
-        :return: (x:int, y:int) -> tuple of the coordinates of the projected position
-        """
-        theta = self.angle - angle
-        sign = 1 if theta.greater_than_180() else -1
-        theta = theta.ref()
-
-        dy = theta.sin() * distance if 90 <= self.angle.value <= 180 or 270 < self.angle.value < 360 else theta.cos() * distance
-        dx = theta.cos() * distance if 90 <= self.angle.value <= 180 or 270 < self.angle.value < 360 else theta.cos() * distance
-
-        return self.x + (dx * sign), self.y + (dy * sign)
 
     def reset_velocity(self, x=0, y=0, angle=0, speed=0):
         self.x = x

@@ -153,6 +153,12 @@ class GameControlDriver(Agent, ABC):
         super().__init__(num_inputs, num_outputs)
 
     def update(self, inputs, keys_pressed=None) -> list[int]:
+        """
+        - Encode the inputs to integers 0 - 3
+        :param inputs: the input from the car sensors
+        :param keys_pressed: the keys pressed from the user
+        :return: a list of output encodings (0 - 3) representing requested movement
+        """
         ret = []
         if keys_pressed[K_LEFT]:
             ret.append(0)
@@ -193,7 +199,7 @@ def main():
 
     simulation = DefaultSimulation(
         debug=True,
-        fps=60,
+        fps=60,  # None means simulation fps is not tracked
         num_episodes=None,
         caption="Default Simulation",
         car=car,
@@ -208,14 +214,15 @@ def main():
     # Create Sensors
     sb = SensorBuilder(
         sim=simulation,
-        depth=200,
+        depth=500,
         default_value=None,
         color=(255, 0, 0),
         width=2,
-        pointer=False,
+        pointer=True,
         car_size=car.image.get_size()
     )
-    sensors = sb.generate_sensors([0, 30, -30, 60])
+    sensors = sb.generate_sensors(sensor_range=(-90, 90, 10))
+    # sensors = sb.generate_sensors([0])
     # Attach sensors to car
     car.init_sensors(sensors=sensors)
     # Throw driver in the vehicle
