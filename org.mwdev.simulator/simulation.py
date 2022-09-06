@@ -92,6 +92,8 @@ class Simulation(ABC):
         # track information
         self.start_pos = None
         self._track_border = None
+        self.track_border_width = None
+        self.track_border_height = None
         self.border_mask = None
         self._track_bg = None
         self._track_rewards = None
@@ -155,6 +157,9 @@ class Simulation(ABC):
         self._track_rewards = pygame.image.load(rewards)
         self._track_rewards = pygame.transform.smoothscale(self._track_rewards, self._track_dim).convert_alpha()
 
+        if self._track_border is not None:
+            self.track_border_width = self._track_border.get_width()
+            self.track_border_height = self._track_border.get_height()
         if border is not None:
             self.border_mask = pygame.mask.from_surface(self._track_border)
         if rewards is not None:

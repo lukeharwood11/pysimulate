@@ -199,7 +199,7 @@ def main():
 
     simulation = DefaultSimulation(
         debug=True,
-        fps=60,  # None means simulation fps is not tracked
+        fps=60,  # None means simulation fps is not tracked (Suggested for training)
         num_episodes=None,
         caption="Default Simulation",
         car=car,
