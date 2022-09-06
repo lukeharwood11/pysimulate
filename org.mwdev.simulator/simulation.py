@@ -246,7 +246,6 @@ class Simulation(ABC):
         self.fps_label.append_text(str(self._calc_fps), self._calc_fps / 2)
         self.fps_label.render(self.window)
         self.update_debug_display(reward, collision)
-        print("Sensor Values:", self.car.print_sensor_values())
         self.op_display()
 
     # TODO implement
