@@ -152,10 +152,12 @@ class GameControlDriver(Agent, ABC):
         """
         super().__init__(num_inputs, num_outputs)
 
-    def update(self, inputs, keys_pressed=None) -> list[int]:
+    def update(self, inputs, reward_collision=False, wall_collision=False, keys_pressed=None) -> list[int]:
         """
         - Encode the inputs to integers 0 - 3
-        :param inputs: the input from the car sensors
+        :param wall_collision: n/a
+        :param reward_collision: n/a
+        :param inputs: the input from the car sensors (n/a)
         :param keys_pressed: the keys pressed from the user
         :return: a list of output encodings (0 - 3) representing requested movement
         """
@@ -221,7 +223,7 @@ def main():
         pointer=True,
         car_size=car.image.get_size()
     )
-    sensors = sb.generate_sensors(sensor_range=(-90, 90, 10))
+    sensors = sb.generate_sensors(sensor_range=(-90, 90, 5))
     # sensors = sb.generate_sensors([0])
     # Attach sensors to car
     car.init_sensors(sensors=sensors)

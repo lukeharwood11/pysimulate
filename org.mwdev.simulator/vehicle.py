@@ -22,13 +22,15 @@ class Vehicle(ABC):
                  scale: int = 1,
                  debug: bool = False,
                  sensor_depth: int = 100,
-                 max_speed: int = 20):
+                 max_speed: int = 20,
+                 normalize: bool = True):
         # public attributes
         super().__init__()
         self.driver = driver
         self.death_count = 0
         self.sensors: list[Sensor] = []
         # private attributes
+        self._normalize = normalize
         self._image_path = image_path
         # cache each rotation upon initialization to increase efficiency
         self._image_angle_cache = []
@@ -41,6 +43,13 @@ class Vehicle(ABC):
         self.current_image = None
         self.image = None
         self.init_car_image()
+
+    def _get_sensor_input(self):
+        """
+        :return: a numpy array of the values from the sensors
+        """
+        np_array = np.array([sensor.value for sensor in self.sensors])
+        return np.linalg.norm(np_array) if self._normalize else np_array
 
     def print_sensor_values(self):
         for i, sensor in enumerate(self.sensors):
@@ -361,7 +370,7 @@ class Sensor:
             if bit == 1:
                 if self.pointer:
                     x, y = point[0] - 5 / 2, point[1] - 5 / 2
-                    draw.circle(simulation.window, (0, 0, 255), (x, y), 5)
+                    draw.circle(simulation.window, (255, 255, 255), (x, y), 5)
                 self.value = car_v.distance_between(
                     other=Vector2D(x=point[0], y=point[1]),
                     offset=(simulation.car.image.get_width() / 2,

@@ -1,13 +1,11 @@
 from enum import Enum
 
-
 class LogLevel(Enum):
     DEBUG = 0,
     TRACE = 1,
     WARNING = 2,
     ERROR = 3,
     FATAL = 4
-
 
 class Logger:
 
