@@ -42,10 +42,6 @@ class Vehicle(ABC):
         self.image = None
         self.init_car_image()
 
-    def position(self):
-        return np.array([self.velocity.x, self.velocity.y], dtype=float) + np.array(
-            [self.image.get_width() / 2, self.image.get_height() / 2])
-
     def init_car_image(self):
         self.image = image.load(self._image_path)
         self.configure_image()
@@ -117,7 +113,7 @@ class Vehicle(ABC):
         # get (x1,y1,x2,y2) tuples for all sensor positions
         s = [sensor.update(window=window, simulation=simulation) for sensor in self.sensors]
         if self._debug:
-            self.display_sensor(car_pos=self.position(), window=window)
+            self.display_sensor(car_pos=simulation.get_vehicle_image_position(), window=window)
 
     # TODO: Display cannot just pull from one collision point
     def display_sensor(self, car_pos, window: pygame.surface.Surface):
@@ -125,9 +121,9 @@ class Vehicle(ABC):
             if s.coords is not None:
                 pygame.draw.line(surface=window,
                                  color=s.line_color,
-                                 start_pos=(s.coords[0]),
-                                 end_pos=(s.coords[1, 0] if s.collision_point is None else s.collision_point[0],
-                                          s.coords[1, 1] if s.collision_point is None else s.collision_point[1]),
+                                 start_pos=(car_pos),
+                                 end_pos=(s.coords[0] if s.collision_point is None else s.collision_point[0],
+                                          s.coords[1] if s.collision_point is None else s.collision_point[1]),
                                  width=s.line_width)
 
     def get_input(self) -> list[int]:
@@ -221,29 +217,24 @@ class SensorBuilder:
         self.default_value = default_value
         self.car_size = car_size
         self.masks = []  # list of 359 masks representing all angles
-        self._sensor_position = []  # list of 359 sensor positions
+        self._sensor_position = np.zeros((360, self.depth, 2))  # list of 359 sensor positions
+        self.sensor_depth_array = np.array([self.depth, self.depth])
         self.mask_debug_images = []
-        self.offset = self.car_size[0] / 2, self.car_size[1] / 2
-        self.generate_masks()
-        self.x = 0
+        self.offset = 0, 0
+        self.generate_sensor_points()
 
-    def get_sensor_pos(self, car_angle, sensor_angle, offset):
+    def get_sensor_pos(self, car_angle, sensor_angle):
         """
 
         :param car_angle: the angle of the vehicle
         :param sensor_angle: the angle of the sensor relative to the car
         :param offset:
-        :return:
+        :return: An array of shape ([sensor_depth], 2)
         """
         # Get the sensor position given the current angle and position of the car
-        # np.array([[x1, y1], [x2, y2]])
         sensor_absolute_angle = car_angle + sensor_angle
-        start_end = self._sensor_position[sensor_absolute_angle.round().value]
-        start_pos = np.array(start_end[0]) + offset + np.array(
-            [-self.depth, -self.depth]) + self.simulation.get_vehicle_offset() + 10
-        end_pos = np.array(start_end[1]) + offset + np.array(
-            [-self.depth, -self.depth]) + self.simulation.get_vehicle_offset() + 10
-        return np.array([start_pos, end_pos])
+        sensor_pos = self._sensor_position[sensor_absolute_angle.round().value]
+        return sensor_pos + self.simulation.get_vehicle_image_position()
 
     def get_sensor_offset(self):
         """
@@ -271,24 +262,17 @@ class SensorBuilder:
             )
         return sensors
 
-    def generate_masks(self):
+    def generate_sensor_points(self):
         """
         - Generate a cached list of sensor masks to be used to receive input
         """
         vect = Velocity()
         for angle in range(360):
             a = Angle.create(angle)
-            x, y = Vector2D.point_at_angle(self.depth, angle=a, offset=np.array(self.offset))
-            surf = pygame.surface.Surface((self.depth * 2, self.depth * 2), pygame.SRCALPHA, 32)
-            surf = surf.convert_alpha()
-            start_pos = self.depth, self.depth
-            end_pos = x + self.depth, -y + self.depth
-
-            draw.line(surface=surf, color=(255, 0, 0), start_pos=start_pos,
-                      end_pos=end_pos, width=self.width)
-            self.mask_debug_images.append(surf)
-            self._sensor_position.append((start_pos, end_pos))
-            self.masks.append(pygame.mask.from_surface(surface=surf))
+            for step in range(self.depth):
+                x, y = Vector2D.point_at_angle(step, angle=a, offset=np.array(self.offset))
+                x2, y2 = x, -y
+                self._sensor_position[angle, step] = np.array([x2, y2])
 
 
 class Sensor:
@@ -324,7 +308,7 @@ class Sensor:
         self.line_width = line_width
         self.line_color = line_color
         self.value = 1  # sensor_depth / sensor_depth
-        self.coords = None
+        self.coords = np.zeros(2)
         self.pointer = pointer
         self.collision_point = None
 
@@ -339,21 +323,22 @@ class Sensor:
 
         # update the value of the surface
         surface = pygame.surface.Surface(window.get_size())
-        coords = self.sensor_builder.get_sensor_pos(car.velocity.angle, Angle(self.angle),
-                                                    np.array([car.velocity.x, car.velocity.y]))
-        # update the value of the sensor
-        self.update_value(simulation=simulation)
-        # np.array([[x1, y1], [x2, y2]])
-        self.coords = coords
-        # return the line coordinates
-        # x1, y1, x2, y2
-        return coords[0, 0], coords[0, 1], coords[1, 0], coords[1, 1]
+        # coords has a shape of ([sensor_depth], 2)
+        sensor_array = self.sensor_builder.get_sensor_pos(car.velocity.angle, Angle(self.angle))
 
-    def update_value(self, simulation):
+        # update the value of the sensor
+        self.update_value(sensor_array=sensor_array, simulation=simulation)
+        # np.array[x2, y2]
+        self.coords = sensor_array[self.sensor_depth - 1]
+        # return the line coordinates
+        # x2, y2
+        return self.coords[0], self.coords[1]
+
+    def update_value(self, sensor_array, simulation):
         """
         Check for collisions between the simulation track_border and the sensor surface
-        and update the value of the sensor as either the default_val (no collision) or
-        the distance between the collision and the vehicle
+        and update the value of the sensor as either the default_val (no bit) or
+        the distance between the bit and the vehicle
         Note: Error will be thrown if the track_border is None
         :param simulation: Simulation
         :return: None
@@ -363,28 +348,23 @@ class Sensor:
         angle = car_v.angle + Angle(self.angle)
         print("car angle: ", car_v.angle)
         print("mask angle: ", angle)
-        mask: pygame.mask.Mask = self.sensor_builder.masks[angle.round().value]
-        offset = simulation.get_vehicle_image_position() - self.sensor_depth
-        collision = border_mask.overlap_mask(other=mask, offset=offset)
-        # issue #12 debug
-        # simulation.window.blit(self.sensor_builder.mask_debug_images[angle.round().value], offset)
-        # simulation.window.blit(collision.to_surface(), (0, 0))
-        points = collision.outline()
-        distances = [car_v.distance_between(other=Vector2D(point[0], point[1])) for point in points]
 
-        for coord in points:
-            draw.circle(simulation.window, (0, 0, 255), coord, 3)
-        collision = points[np.argmin(np.array(distances))] if len(distances) > 0 else None
-        if collision is None:
-            self.value = self.default_val
-            self.collision_point = None
-        else:
-            if self.pointer:
-                x, y = collision[0] - 5 / 2, collision[1] - 5 / 2
-                draw.circle(simulation.window, (0, 0, 255), (x, y), 5)
-            self.value = car_v.distance_between(
-                other=Vector2D(x=collision[0], y=collision[1]),
-                offset=(simulation.car.image.get_width() / 2,
-                        simulation.car.image.get_height() / 2)
-            )
-            self.collision_point = collision
+        for point in sensor_array:
+            valid_point = 0 <= point[0] < simulation.track_border_width \
+                          and 0 <= point[1] < simulation.track_border_height
+            if not valid_point: continue
+            bit = border_mask.get_at((point[0], point[1]))
+            if bit == 1:
+                if self.pointer:
+                    x, y = point[0] - 5 / 2, point[1] - 5 / 2
+                    draw.circle(simulation.window, (0, 0, 255), (x, y), 5)
+                self.value = car_v.distance_between(
+                    other=Vector2D(x=point[0], y=point[1]),
+                    offset=(simulation.car.image.get_width() / 2,
+                            simulation.car.image.get_height() / 2)
+                )
+                self.collision_point = point
+                break
+            else:
+                self.value = self.default_val
+                self.collision_point = None
