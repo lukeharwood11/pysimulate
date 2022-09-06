@@ -42,6 +42,10 @@ class Vehicle(ABC):
         self.image = None
         self.init_car_image()
 
+    def print_sensor_values(self):
+        for i, sensor in enumerate(self.sensors):
+            print("Sensor {}:".format(i), sensor.value)
+
     def init_car_image(self):
         self.image = image.load(self._image_path)
         self.configure_image()
