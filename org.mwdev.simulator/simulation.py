@@ -1,6 +1,8 @@
 import os
 from abc import ABC, abstractmethod
 from time import time
+
+import numpy as np
 import pygame
 
 
@@ -161,6 +163,13 @@ class Simulation(ABC):
     def get_vehicle_offset(self):
         return None if self.car is None else (self.car.image.get_width() / 2, self.car.image.get_height() / 2)
 
+    def get_vehicle_image_position(self):
+        """
+        :return: The absolute position of the image of the vehicle (in relation to the window)
+        """
+        return np.array((self.car.velocity.x + (self.car.image.get_width() / 2) + 12,
+                  self.car.velocity.y + (self.car.image.get_height() / 2) + 12))
+
     def init_display(self):
         if self._caption is None:
             self._caption = "Racing Simulation"
@@ -289,9 +298,8 @@ class Simulation(ABC):
                 and self.car is not None \
                 and self.car.current_image is not None:
             car_mask = pygame.mask.from_surface(self.car.image)
-            x, y = (self.car.velocity.x + (.5 * self.car.image.get_width()),
-                    self.car.velocity.y + (.5 * self.car.image.get_height()))
-            col = self.rewards_mask.overlap(car_mask, (x, y))
+            car_pos = self.get_vehicle_image_position()
+            col = self.rewards_mask.overlap(car_mask, (car_pos[0], car_pos[1]))
             if col is not None:
                 return True
         return False

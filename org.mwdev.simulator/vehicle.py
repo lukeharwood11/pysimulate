@@ -364,8 +364,7 @@ class Sensor:
         print("car angle: ", car_v.angle)
         print("mask angle: ", angle)
         mask: pygame.mask.Mask = self.sensor_builder.masks[angle.round().value]
-        offset = (car_v.x - self.sensor_depth + (simulation.car.image.get_width() / 2) + 10,
-                  car_v.y - self.sensor_depth + (simulation.car.image.get_height() / 2) + 10)
+        offset = simulation.get_vehicle_image_position() - self.sensor_depth
         collision = border_mask.overlap_mask(other=mask, offset=offset)
         # issue #12 debug
         # simulation.window.blit(self.sensor_builder.mask_debug_images[angle.round().value], offset)
