@@ -46,7 +46,7 @@ class Simulation(ABC):
         self.rewards_mask = None
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         self._clock = pygame.time.Clock()
-        self._iteration_num = 0
+        self._iteration_num = 1
         self._debug = debug
         self._max_episodes = num_episodes
         self._caption = caption
@@ -63,6 +63,7 @@ class Simulation(ABC):
         # labels
         self.fps_label = None
         self.iteration_count_label = None
+        self.car_label = None
         self.label_manager = TimedLabelQueue(self.window)
         # this value should be overridden by child class
         self.start_pos = (0, 0)
@@ -74,6 +75,7 @@ class Simulation(ABC):
         self.init_iteration_count_label()
         self.init_fps_label()
         self.init_car_start_pos()
+        self.init_car_label()
         self.convert_images()  # initializes the track
 
     @abstractmethod
@@ -134,6 +136,10 @@ class Simulation(ABC):
     def init_fps_label(self):
         self.fps_label = Label((10, 10), "FPS: 0", size=30, font=None, color=(0, 0, 0), background=None,
                                anti_alias=False)
+
+    def init_car_label(self):
+        self.car_label = Label((10, self._screen_dim[1] - 40), "Speed: ", size=30, font=None, color=(0, 0, 0),
+                               background=(255, 255, 255), anti_alias=False)
 
     def init_iteration_count_label(self):
         self.iteration_count_label = Label((1100, 10), "Iteration: ", size=30, font=None, color=(0, 0, 0),
@@ -196,13 +202,19 @@ class Simulation(ABC):
             self.reset()
         self.car.step(reward, collision, keys_pressed)
         self.car.update(simulation=self)
+        self.update_debug_display(reward, collision)
+        self.update_and_display_labels()
+        self.op_display()
+
+    def update_and_display_labels(self):
         self.fps_label.append_text(str(self._calc_fps), self._calc_fps / 2)
+        self.car_label.append_text(str(round(self.car.velocity.speed)), self._calc_fps / 2)
         self.iteration_count_label.append_text(str(self._iteration_num))
         self.iteration_count_label.render(self.window)
+        self.car_label.render(self.window)
         self.fps_label.render(self.window)
         self.label_manager.render()
-        self.update_debug_display(reward, collision)
-        self.op_display()
+
 
     # TODO implement
     def op_display(self):

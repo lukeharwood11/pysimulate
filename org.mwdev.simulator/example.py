@@ -219,7 +219,7 @@ def main():
     car = Car(
         driver=None,
         sensor_depth=200,
-        debug=True,
+        debug=False,
         acceleration_multiplier=.5
     )
 
@@ -250,10 +250,11 @@ def main():
             num_outputs=car.num_outputs
         ),
         'qlearn': QLearningAgent(
+            simulation=simulation,
             alpha=0.01,
             alpha_decay=0.01,
             y=0.90,
-            epsilon=.95,
+            epsilon=.98,
             num_sensors=len(sensors),
             num_actions=car.num_outputs,
             batch_size=16,
@@ -262,9 +263,10 @@ def main():
             load_latest_model=False,
             training_model=True,
             model_path=None,
-            train_each_step=True,
-            debug=True,
-            other_inputs=car.get_external_inputs()
+            train_each_step=False,
+            debug=False,
+            other_inputs=car.get_external_inputs(),
+            timeout=10
         )
     }
 

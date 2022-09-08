@@ -1,17 +1,12 @@
 import os
-from typing import List
+import time
 
 import numpy as np
-from abc import ABC
-
+from gui.components import TimedLabel, TimedLabelQueue
 from keras.optimizer_v2.adam import Adam
-from numpy import ndarray
-
 from agent import Agent
-
 from tensorflow.keras import Sequential
-from tensorflow.keras.layers import Dense
-import tensorflow as tf
+from tensorflow.keras.layers import Dense, InputLayer
 
 
 class Experience:
@@ -54,20 +49,29 @@ class ReplayMemory:
 
 
 class QLearningParams:
-    def __init__(self, wall_collision_value, reward_collision_value, other_value):
+    def __init__(self, wall_collision_value, reward_collision_value, other_value, timeout_value):
         self.wall = wall_collision_value
         self.reward = reward_collision_value
         self.other = other_value
+        self.timeout = timeout_value
+
+    def speed_reward(self, current_reward_value, speed):
+        """
+        reward the model for going faster, and punish for going too slow
+        :return:
+        """
+        current_reward_value += speed
 
 
 class QLearningAgent(Agent):
 
-    def __init__(self, alpha, alpha_decay, y, epsilon, num_sensors, num_actions, batch_size, replay_mem_max,
+    def __init__(self, simulation, alpha, alpha_decay, y, epsilon, num_sensors, num_actions, batch_size, replay_mem_max,
                  save_after=None,
-                 load_latest_model=False, training_model=True, model_path=None, train_each_step=False, debug=False, other_inputs=0):
+                 load_latest_model=False, training_model=True, model_path=None, train_each_step=False, debug=False, other_inputs=0, timeout=None):
         # initialize Agent parent class
         # add one to num_inputs for current speed
         super(QLearningAgent, self).__init__(num_inputs=num_sensors+other_inputs, num_outputs=num_actions)
+        self.simulation = simulation
         # Q learning hyperparameters
         self.alpha = alpha
         self.alpha_decay = alpha_decay
@@ -77,6 +81,8 @@ class QLearningAgent(Agent):
         # Q learning replay memory
         self.replay_memory = ReplayMemory(max_size=replay_mem_max)
         # private state
+        self._last_reward_time = time.time()
+        self._timeout = timeout
         self._current_state = None
         self._current_action = None
         self._rewarded_currently = False
@@ -91,12 +97,14 @@ class QLearningAgent(Agent):
         self._debug = debug
         # build Sequential tensorflow model
         self._model = Sequential()
-        self._model.add(Dense(32, input_shape=(None, self.num_inputs)))
+        self._model.add(InputLayer(input_shape=self.num_inputs))
+        self._model.add(Dense(32))
         self._model.add(Dense(64))
         self._model.add(Dense(self.num_outputs, activation='linear'))
-        self._model.compile(loss='mse', optimizer=Adam(lr=self.alpha, decay=self.alpha_decay))
+        self._model.compile(loss='mse', optimizer=Adam(learning_rate=self.alpha, decay=self.alpha_decay))
+        self._model.summary()
         # Q learning rewards
-        self._qlearn_params = QLearningParams(wall_collision_value=-20, reward_collision_value=20, other_value=-2)
+        self._qlearn_params = QLearningParams(wall_collision_value=-20, reward_collision_value=20, other_value=-2, timeout_value=-50)
 
     def update(self, inputs, reward_collision=False, wall_collision=False, keys_pressed=None) -> list[int]:
         """
@@ -111,13 +119,14 @@ class QLearningAgent(Agent):
         # Change internal states
         self._handle_collision(wall_collision)
         self._handle_reward(reward, reward_collision)
+        self._qlearn_params.speed_reward(reward, self.simulation.car.velocity.speed)
         self._handle_experience(reward, inputs)
         self._handle_training()
         actions = self._model.predict(inputs.reshape(1, self.num_inputs))
         action = np.argmax(actions)
-        print("Reward", reward)
+        if np.random.rand() > self.epsilon:
+            action = np.random.choice(np.arange(self.num_outputs))
         self._current_action = action
-        print(action)
         return [action]
 
     def _get_reward(self, reward_collision, wall_collision):
@@ -156,9 +165,28 @@ class QLearningAgent(Agent):
             if self._rewarded_currently:
                 # if the car is sitting on a reward, punish it with "other" value
                 reward -= self._qlearn_params.reward - self._qlearn_params.other
+            else:
+                self._last_reward_time = time.time()
+                self.simulation.label_manager.display_label(TimedLabel(
+                    position=(550, 600), timeout=2.0, queue=self.simulation.label_manager, text="Reward Found!", size=30,
+                    font=None, color=(255, 255, 255), refresh_count=None, background=(0, 0, 0), anti_alias=True
+                ), force=False)
             self._rewarded_currently = True
         else:
             self._rewarded_currently = False
+            if self._timeout is not None and time.time() - self._last_reward_time >= self._timeout:
+                self._last_reward_time = time.time()
+                self._request_restart()
+                self._collision_count += 1
+                self.simulation.label_manager.display_label(TimedLabel(
+                    position=(400, 250), timeout=2.0, queue=self.simulation.label_manager, text="Timeout! Restart!", size=80,
+                    font=None, color=(255, 255, 255), refresh_count=None, background=(0, 0, 0), anti_alias=True
+                ), force=False)
+                reward += self._qlearn_params.timeout
+                self._train_model()
+
+    def _request_restart(self):
+        self.simulation.reset()
 
     def _train_model(self):
         """
@@ -179,14 +207,14 @@ class QLearningAgent(Agent):
             X_train[i] = current_state
             y_train[i] = q_value_prediction[0][experience.current_action]
 
-        self._model.fit(X_train, y_train, verbose=2)
+        self._model.fit(X_train, y_train, verbose=2, epochs=3)
 
     def _save_model_increment(self):
         """
         Save the current model to a unique location representing the current iteration
         :return: None
         """
-        self._model.save_model("assets/models/model_" + str(self._collision_count) + ".h5")
+        self._model.save_weights("assets/models/model_" + str(self._collision_count) + ".h5")
 
     def save_model(self, path):
         """

@@ -70,7 +70,7 @@ class TimedLabel(Label):
         :param background:
         :param anti_alias:
         """
-        super(TimedLabel).__init__(position, text, size, font, color, refresh_count, background, anti_alias)
+        super().__init__(position=position, text=text, size=size, font=font, color=color, refresh_count=refresh_count, background=background, anti_alias=anti_alias)
         self.time_created = time.time()
         self.timeout = timeout
         self.queue = queue
@@ -100,8 +100,10 @@ class TimedLabelQueue:
             self.current_label = self.labels.pop(0)
 
     def display_label(self, label, force=False):
-        if force:
+        if force or len(self.labels) == 0:
             self.current_label = label
+        else:
+            self.labels.append(label)
 
     def render(self):
         if self.current_label is not None:
