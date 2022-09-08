@@ -55,14 +55,15 @@ class DefaultSimulation(Simulation, ABC):
 
 class Car(Vehicle, ABC):
 
-    def __init__(self, driver, sensor_depth, debug=False, acceleration_multiplier=.5):
+    def __init__(self, driver, sensor_depth, debug=False, acceleration_multiplier=.5, normalize=True):
         super(Car, self).__init__(
             num_outputs=5,
             image_path=os.path.join("assets", "grey-car.png"),
             driver=driver,
             scale=1,
             debug=debug,
-            sensor_depth=sensor_depth
+            sensor_depth=sensor_depth,
+            normalize=normalize
         )
         self.acceleration_multiplier = acceleration_multiplier
         self.model_path = os.path.join("assets", "models")
@@ -92,6 +93,7 @@ class Car(Vehicle, ABC):
             angle=180,
             speed=0
         )
+        self.odometer = 0
 
     def accelerate(self):
         """
@@ -220,12 +222,13 @@ def main():
         driver=None,
         sensor_depth=200,
         debug=False,
-        acceleration_multiplier=.5
+        acceleration_multiplier=.5,
+        normalize=True
     )
 
     simulation = DefaultSimulation(
         debug=True,
-        fps=60,  # None means simulation fps is not tracked (Suggested for training)
+        fps=None,  # None means simulation fps is not tracked (Suggested for training)
         num_episodes=None,
         caption="Default Simulation",
         car=car,
@@ -257,10 +260,10 @@ def main():
             epsilon=.98,
             num_sensors=len(sensors),
             num_actions=car.num_outputs,
-            batch_size=16,
-            replay_mem_max=10_000,
+            batch_size=64,
+            replay_mem_max=400,
             save_after=100,
-            load_latest_model=False,
+            load_latest_model=True,
             training_model=True,
             model_path=None,
             train_each_step=False,
