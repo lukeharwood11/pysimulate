@@ -1,9 +1,13 @@
 from abc import ABC
 
+import numpy as np
+
 from agent import Agent
 from simulation import Simulation
-from vehicle import Vehicle, Sensor
+from vehicle import Vehicle, SensorBuilder
+from qlearn import QLearningAgent
 from pygame import (K_UP, K_DOWN, K_LEFT, K_RIGHT, transform)
+from gui.components import TimedLabel, TimedLabelQueue
 import os
 
 
@@ -32,7 +36,7 @@ class DefaultSimulation(Simulation, ABC):
         sets the start position of the car
         :return:
         """
-        self.start_pos = (1000, 100)
+        self.start_pos = (875, 100)
 
     def init_track(self) -> (str, str, str):
         """
@@ -44,15 +48,16 @@ class DefaultSimulation(Simulation, ABC):
         :return: the path to the tracks in the order 'border, background (design), rewards'
         """
         return \
-            os.path.join("assets", "track1-border.png"), \
-            os.path.join("assets", "track1.png"), \
-            os.path.join("assets", "track1-rewards.png")
+            os.path.join("assets", "track-border.png"), \
+            os.path.join("assets", "track.png"), \
+            os.path.join("assets", "track-rewards.png")
 
 
 class Car(Vehicle, ABC):
 
     def __init__(self, driver, sensor_depth, debug=False, acceleration_multiplier=.5):
         super(Car, self).__init__(
+            num_outputs=5,
             image_path=os.path.join("assets", "grey-car.png"),
             driver=driver,
             scale=1,
@@ -64,6 +69,7 @@ class Car(Vehicle, ABC):
 
     def configure_image(self):
         self.image = transform.rotate(self.image, -90)
+        self.image = transform.smoothscale(self.image, (34, 17))
 
     def save_car(self):
         """
@@ -121,9 +127,9 @@ class Car(Vehicle, ABC):
         :param collision: whether the car is over a collision
         :return: None
         """
-        i = self.get_input()
-        i.extend([1 if collision else 0, 1 if reward else 0])
-        direction = self.driver.update(inputs=i, keys_pressed=keys_pressed)
+        i = self._get_vehicle_input()
+        direction = self.driver.update(inputs=i, wall_collision=collision, reward_collision=reward,
+                                       keys_pressed=keys_pressed)
         accel = False
         if direction.count(0) > 0:
             self.turn(left=True)
@@ -140,6 +146,20 @@ class Car(Vehicle, ABC):
     def deccelerate(self):
         self.velocity.speed = .98 * self.velocity.speed
 
+    def get_external_inputs(self):
+        """
+        :return: 1 for speed
+        """
+        return 1
+
+    def _get_vehicle_input(self):
+        """
+        :return: a numpy array of the values from the sensors
+        """
+        np_array = np.array([sensor.value for sensor in self.sensors] + [self.velocity.speed])
+        norm = np.linalg.norm(np_array)
+        return np_array/norm if self._normalize else np_array
+
 
 class GameControlDriver(Agent, ABC):
 
@@ -151,7 +171,20 @@ class GameControlDriver(Agent, ABC):
         """
         super().__init__(num_inputs, num_outputs)
 
-    def update(self, inputs, keys_pressed=None) -> list[int]:
+    def update(self, inputs, reward_collision=False, wall_collision=False, keys_pressed=None) -> list[int]:
+        """
+        - Encode the inputs to integers 0 - 3
+        :param wall_collision: n/a
+        :param reward_collision: n/a
+        :param inputs: the input from the car sensors (n/a)
+        :param keys_pressed: the keys pressed from the user
+        :return: a list of output encodings (0 - 3) representing requested movement
+        """
+        print(
+            "collision", wall_collision,
+            "reward_collision", reward_collision,
+            "inputs", inputs
+        )
         ret = []
         if keys_pressed[K_LEFT]:
             ret.append(0)
@@ -165,7 +198,7 @@ class GameControlDriver(Agent, ABC):
 
     def save_model(self, path):
         """
-        do None
+        do nothing
         :param path: n/a
         :return: n/a
         """
@@ -173,7 +206,7 @@ class GameControlDriver(Agent, ABC):
 
     def load_model(self, path):
         """
-        do None
+        do nothing
         :param path: n/a
         :return: n/a
         """
@@ -182,15 +215,17 @@ class GameControlDriver(Agent, ABC):
 
 def main():
     NUM_SENSORS = 10
+
     car = Car(
         driver=None,
         sensor_depth=200,
-        debug=True,
+        debug=False,
         acceleration_multiplier=.5
     )
+
     simulation = DefaultSimulation(
         debug=True,
-        fps=60,
+        fps=60,  # None means simulation fps is not tracked (Suggested for training)
         num_episodes=None,
         caption="Default Simulation",
         car=car,
@@ -198,10 +233,50 @@ def main():
         screen_size=(1400, 800),
         track_size=(1400, 800)
     )
-    driver = GameControlDriver(
-        num_inputs=NUM_SENSORS,
-        num_outputs=4
+    # Create Sensors
+    sb = SensorBuilder(
+        sim=simulation,
+        depth=500,
+        default_value=None,
+        color=(255, 0, 0),
+        width=2,
+        pointer=True
     )
+    sensors = sb.generate_sensors(sensor_range=(-90, 90, 5))
+
+    driver_map = {
+        'user': GameControlDriver(
+            num_inputs=len(sensors),
+            num_outputs=car.num_outputs
+        ),
+        'qlearn': QLearningAgent(
+            simulation=simulation,
+            alpha=0.01,
+            alpha_decay=0.01,
+            y=0.90,
+            epsilon=.98,
+            num_sensors=len(sensors),
+            num_actions=car.num_outputs,
+            batch_size=16,
+            replay_mem_max=10_000,
+            save_after=100,
+            load_latest_model=False,
+            training_model=True,
+            model_path=None,
+            train_each_step=False,
+            debug=False,
+            other_inputs=car.get_external_inputs(),
+            timeout=10
+        )
+    }
+
+    # Change this line to select different drivers
+    driver = driver_map['qlearn']
+
+    # sensors = sb.generate_sensors([0])
+    # Attach sensors to car
+    car.init_sensors(sensors=sensors)
+    # Throw driver in the vehicle
     car.driver = driver
     simulation.simulate()
 

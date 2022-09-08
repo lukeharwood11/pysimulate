@@ -1,27 +1,9 @@
 import os
 from abc import ABC, abstractmethod
 from time import time
+from gui.components import Label, TimedLabel, TimedLabelQueue
+import numpy as np
 import pygame
-
-
-class Label:
-
-    def __init__(self, position, text="", size=12, font=None, color=(0, 0, 0), background=None, anti_alias=False):
-        self.font = font
-        self.text = text
-        self.color = color
-        self.size = size
-        self.position = position
-        self.background = background
-        self.anti_alias = anti_alias
-
-        if font is None:
-            self.font = pygame.font.Font(pygame.font.get_default_font(), self.size)
-
-    def render(self, window):
-        text = self.font.render(self.text, color=self.color, antialias=self.anti_alias, background=self.background)
-        window.blit(text, self.position)
-
 
 class Simulation(ABC):
 
@@ -56,17 +38,20 @@ class Simulation(ABC):
         # track information
         self.start_pos = None
         self._track_border = None
+        self.track_border_width = None
+        self.track_border_height = None
         self.border_mask = None
         self._track_bg = None
         self._track_rewards = None
         self.rewards_mask = None
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         self._clock = pygame.time.Clock()
-        self._iteration_num = 0
+        self._iteration_num = 1
         self._debug = debug
         self._max_episodes = num_episodes
         self._caption = caption
         self._track_offset = track_offset
+
         # a list of rects that have been updated since the last screen refresh
         self._rect_changed = []
         # helper attribute for calculating the actual fps
@@ -75,6 +60,11 @@ class Simulation(ABC):
 
         # public attributes
         self.window = pygame.display.set_mode(self._screen_dim)
+        # labels
+        self.fps_label = None
+        self.iteration_count_label = None
+        self.car_label = None
+        self.label_manager = TimedLabelQueue(self.window)
         # this value should be overridden by child class
         self.start_pos = (0, 0)
         # initialize car later
@@ -82,7 +72,10 @@ class Simulation(ABC):
 
         # handle init
         self.init_display()
+        self.init_iteration_count_label()
+        self.init_fps_label()
         self.init_car_start_pos()
+        self.init_car_label()
         self.convert_images()  # initializes the track
 
     @abstractmethod
@@ -111,18 +104,46 @@ class Simulation(ABC):
         :return:
         """
         border, track, rewards = self.init_track()
-        self._track_border = pygame.image.load(border).convert_alpha()
+        self._track_border = pygame.image.load(border)
+        self._track_border = pygame.transform.smoothscale(self._track_border, self._track_dim).convert_alpha()
         self._track_bg = pygame.image.load(track).convert()
-        self._track_rewards = pygame.image.load(rewards).convert_alpha()
+        self._track_bg = pygame.transform.smoothscale(self._track_bg, self._track_dim).convert()
+        self._track_rewards = pygame.image.load(rewards)
+        self._track_rewards = pygame.transform.smoothscale(self._track_rewards, self._track_dim).convert_alpha()
 
+        if self._track_border is not None:
+            self.track_border_width = self._track_border.get_width()
+            self.track_border_height = self._track_border.get_height()
         if border is not None:
             self.border_mask = pygame.mask.from_surface(self._track_border)
         if rewards is not None:
             self.rewards_mask = pygame.mask.from_surface(self._track_rewards)
 
+    def get_vehicle_offset(self):
+        return None if self.car is None else (self.car.image.get_width() / 2, self.car.image.get_height() / 2)
+
+    def get_vehicle_image_position(self):
+        """
+        :return: The absolute position of the image of the vehicle (in relation to the window)
+        """
+        return np.array((self.car.velocity.x + (self.car.image.get_width() / 2) + 12,
+                  self.car.velocity.y + (self.car.image.get_height() / 2) + 12))
+
     def init_display(self):
         if self._caption is None:
             self._caption = "Racing Simulation"
+
+    def init_fps_label(self):
+        self.fps_label = Label((10, 10), "FPS: 0", size=30, font=None, color=(0, 0, 0), background=None,
+                               anti_alias=False)
+
+    def init_car_label(self):
+        self.car_label = Label((10, self._screen_dim[1] - 40), "Speed: ", size=30, font=None, color=(0, 0, 0),
+                               background=(255, 255, 255), anti_alias=False)
+
+    def init_iteration_count_label(self):
+        self.iteration_count_label = Label((1100, 10), "Iteration: ", size=30, font=None, color=(0, 0, 0),
+                                   background=(255, 255, 255), anti_alias=False)
 
     def simulate(self):
         """
@@ -148,6 +169,7 @@ class Simulation(ABC):
                     if self.car is not None:
                         print("Saving Car...")
                         self.car.save_car()
+                    break
             t = self.current_timestamp
             self.current_timestamp = time()
             if t is not None:
@@ -173,11 +195,26 @@ class Simulation(ABC):
             self.window.blit(self._track_rewards, self._track_offset)
         self.car.update_sensors(self.window, self)
         reward = self.handle_reward()
+        if reward:
+            pass
         collision = self.handle_collision()
+        if collision:
+            self.reset()
         self.car.step(reward, collision, keys_pressed)
         self.car.update(simulation=self)
         self.update_debug_display(reward, collision)
+        self.update_and_display_labels()
         self.op_display()
+
+    def update_and_display_labels(self):
+        self.fps_label.append_text(str(self._calc_fps), self._calc_fps / 2)
+        self.car_label.append_text(str(round(self.car.velocity.speed)), self._calc_fps / 2)
+        self.iteration_count_label.append_text(str(self._iteration_num))
+        self.iteration_count_label.render(self.window)
+        self.car_label.render(self.window)
+        self.fps_label.render(self.window)
+        self.label_manager.render()
+
 
     # TODO implement
     def op_display(self):
@@ -202,6 +239,7 @@ class Simulation(ABC):
         Called whenever the car crashes and the simulation starts over
         :return:
         """
+        self._iteration_num += 1
         self.car.reset(simulation=self)
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -213,8 +251,15 @@ class Simulation(ABC):
         Only works if the track_border is not None
         :return: whether the vehicle hit a wall
         """
-        if self._track_border is not None:
-            return True
+        if self._track_border is not None \
+                and self.car is not None \
+                and self.car.current_image is not None:
+            car_mask = pygame.mask.from_surface(self.car.image)
+            x, y = (self.car.velocity.x + (.5 * self.car.image.get_width()),
+                    self.car.velocity.y + (.5 * self.car.image.get_height()))
+            col = self.border_mask.overlap(car_mask, (x, y))
+            if col is not None:
+                return True
         return False
 
     def handle_reward(self) -> bool:
@@ -222,8 +267,14 @@ class Simulation(ABC):
         Only works if the track_rewards is not None
         :return: whether the vehicle is touching a reward
         """
-        if self._track_rewards is not None:
-            return True
+        if self._track_rewards is not None \
+                and self.car is not None \
+                and self.car.current_image is not None:
+            car_mask = pygame.mask.from_surface(self.car.image)
+            car_pos = self.get_vehicle_image_position()
+            col = self.rewards_mask.overlap(car_mask, (car_pos[0], car_pos[1]))
+            if col is not None:
+                return True
         return False
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - -

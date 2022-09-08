@@ -14,19 +14,26 @@ Use this repo to build your own AI drivers and test them on your own tracks!
 
 ## About
 <hr> 
-This project was built using the pygame library. In order to install pygame use: 
+This project was built using the pygame and numpy libraries. In order to install these dependencies use: 
 
 ```
-pip install pygame
+pip install pygame numpy
 ```
 
-Extend from the abstract class `Simulation` from `simulation.py` in order to create a custom simulation or use `DefaultSimulation` from the same module.
+Extend from the abstract class `Simulation` from `simulation.py` in order to create a custom simulation or simply use the `DefaultSimulation` class.
 
-Same applies to building a custom vehicle from `vehicle.py` or using `DefaultVehicle` from the same module.
+Same applies to building a custom vehicle from `vehicle.py` or using the `DefaultVehicle` class.
 
 ## Author
 <hr> 
--MWdev
+
+**Luke Harwood** 
+
+_lukeharwood11@gmail.com_
+
+_harwoodl@msoe.edu_ 
+
+_www.lukeharwood.dev_
 
 Created on 05/24/2022
 

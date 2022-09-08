@@ -11,13 +11,14 @@ class Agent(ABC):
     - Abstract agent class
     """
     @abstractmethod
-    def update(self, inputs, keys_pressed=None) -> list[int]:
+    def update(self, inputs, reward_collision=False, wall_collision=False, keys_pressed=None) -> list[int]:
         """
         - Given input from the simulation make a decision
-        :param inputs:
-        :param keys_pressed:
-        :return direction: list[int] a list of files with length [0 - num_outputs), 
-                           every entry should correspond with a given output.
+        :param wall_collision: whether the car collided with the wall
+        :param reward_collision: whether the car collided with a reward
+        :param inputs: sensor input as a numpy array
+        :param keys_pressed: a map of pressed keys
+        :return direction: int [0 - num_outputs)
         """
         pass
 
