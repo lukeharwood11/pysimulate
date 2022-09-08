@@ -1,9 +1,13 @@
 from abc import ABC
 
+import numpy as np
+
 from agent import Agent
 from simulation import Simulation
-from vehicle import Vehicle, Sensor, SensorBuilder
+from vehicle import Vehicle, SensorBuilder
+from qlearn import QLearningAgent
 from pygame import (K_UP, K_DOWN, K_LEFT, K_RIGHT, transform)
+from gui.components import TimedLabel, TimedLabelQueue
 import os
 
 
@@ -53,6 +57,7 @@ class Car(Vehicle, ABC):
 
     def __init__(self, driver, sensor_depth, debug=False, acceleration_multiplier=.5):
         super(Car, self).__init__(
+            num_outputs=5,
             image_path=os.path.join("assets", "grey-car.png"),
             driver=driver,
             scale=1,
@@ -122,9 +127,9 @@ class Car(Vehicle, ABC):
         :param collision: whether the car is over a collision
         :return: None
         """
-        i = self.get_input()
-        i.extend([1 if collision else 0, 1 if reward else 0])
-        direction = self.driver.update(inputs=i, keys_pressed=keys_pressed)
+        i = self._get_vehicle_input()
+        direction = self.driver.update(inputs=i, wall_collision=collision, reward_collision=reward,
+                                       keys_pressed=keys_pressed)
         accel = False
         if direction.count(0) > 0:
             self.turn(left=True)
@@ -140,6 +145,20 @@ class Car(Vehicle, ABC):
 
     def deccelerate(self):
         self.velocity.speed = .98 * self.velocity.speed
+
+    def get_external_inputs(self):
+        """
+        :return: 1 for speed
+        """
+        return 1
+
+    def _get_vehicle_input(self):
+        """
+        :return: a numpy array of the values from the sensors
+        """
+        np_array = np.array([sensor.value for sensor in self.sensors] + [self.velocity.speed])
+        norm = np.linalg.norm(np_array)
+        return np_array/norm if self._normalize else np_array
 
 
 class GameControlDriver(Agent, ABC):
@@ -161,6 +180,11 @@ class GameControlDriver(Agent, ABC):
         :param keys_pressed: the keys pressed from the user
         :return: a list of output encodings (0 - 3) representing requested movement
         """
+        print(
+            "collision", wall_collision,
+            "reward_collision", reward_collision,
+            "inputs", inputs
+        )
         ret = []
         if keys_pressed[K_LEFT]:
             ret.append(0)
@@ -209,10 +233,6 @@ def main():
         screen_size=(1400, 800),
         track_size=(1400, 800)
     )
-    driver = GameControlDriver(
-        num_inputs=NUM_SENSORS,
-        num_outputs=4
-    )
     # Create Sensors
     sb = SensorBuilder(
         sim=simulation,
@@ -220,10 +240,37 @@ def main():
         default_value=None,
         color=(255, 0, 0),
         width=2,
-        pointer=True,
-        car_size=car.image.get_size()
+        pointer=True
     )
     sensors = sb.generate_sensors(sensor_range=(-90, 90, 5))
+
+    driver_map = {
+        'user': GameControlDriver(
+            num_inputs=len(sensors),
+            num_outputs=car.num_outputs
+        ),
+        'qlearn': QLearningAgent(
+            alpha=0.01,
+            alpha_decay=0.01,
+            y=0.90,
+            epsilon=.95,
+            num_sensors=len(sensors),
+            num_actions=car.num_outputs,
+            batch_size=16,
+            replay_mem_max=10_000,
+            save_after=100,
+            load_latest_model=False,
+            training_model=True,
+            model_path=None,
+            train_each_step=True,
+            debug=True,
+            other_inputs=car.get_external_inputs()
+        )
+    }
+
+    # Change this line to select different drivers
+    driver = driver_map['qlearn']
+
     # sensors = sb.generate_sensors([0])
     # Attach sensors to car
     car.init_sensors(sensors=sensors)

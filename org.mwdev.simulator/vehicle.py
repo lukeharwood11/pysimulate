@@ -5,6 +5,8 @@ import pygame
 from pygame import image, draw
 from pygame.sprite import Sprite
 from pygame import transform
+from sklearn.preprocessing import normalize
+
 from agent import Agent
 from vector2d import Vector2D, Velocity, Angle
 from simulation import Simulation
@@ -17,6 +19,7 @@ class Vehicle(ABC):
     """
 
     def __init__(self,
+                 num_outputs: int,
                  image_path: str = None,
                  driver: Agent = None,
                  scale: int = 1,
@@ -26,6 +29,7 @@ class Vehicle(ABC):
                  normalize: bool = True):
         # public attributes
         super().__init__()
+        self.num_outputs = num_outputs
         self.driver = driver
         self.death_count = 0
         self.sensors: list[Sensor] = []
@@ -39,17 +43,20 @@ class Vehicle(ABC):
         self._sensor_depth = sensor_depth
         # vehicle info
         self.velocity = Velocity(x=0, y=0, angle=0)
+        self.odometer = 0
         self.max_speed = max_speed
         self.current_image = None
         self.image = None
         self.init_car_image()
 
-    def _get_sensor_input(self):
+    def _get_vehicle_input(self):
         """
+        Overload to add other inputs
         :return: a numpy array of the values from the sensors
         """
         np_array = np.array([sensor.value for sensor in self.sensors])
-        return np.linalg.norm(np_array) if self._normalize else np_array
+        norm = np.linalg.norm(np_array)
+        return np_array/norm if self._normalize else np_array
 
     def print_sensor_values(self):
         for i, sensor in enumerate(self.sensors):
@@ -96,6 +103,7 @@ class Vehicle(ABC):
         window = simulation.window
         # account for reoccurring events (such as velocity update)
         self.update_pos()
+        self.odometer += self.velocity.speed  # update odometer as the distance moved each step
         self.blit_rotate_center(window, (self.velocity.x, self.velocity.y))
 
     def update_pos(self):
@@ -111,6 +119,7 @@ class Vehicle(ABC):
     def init_sensors(self, sensors):
         """
         - Initializes the sensors of the vehicle
+        :param sensor_builder:
         :param sensors:
         :return:
         """
@@ -210,11 +219,18 @@ class Vehicle(ABC):
         """
         pass
 
+    @abstractmethod
+    def get_external_inputs(self):
+        """
+        :return: the number of inputs (not including sensors) that are used
+        i.e. velocity
+        """
+        pass
+
 
 class SensorBuilder:
 
-    def __init__(self, depth: int, sim: Simulation, default_value=None, color=(0, 0, 0), width=2, pointer=True,
-                 car_size=(0, 0)):
+    def __init__(self, depth: int, sim: Simulation, default_value=None, color=(0, 0, 0), width=2, pointer=True):
         """
         Convenience class for building sensors
         :param depth: the sensor depth
@@ -228,7 +244,7 @@ class SensorBuilder:
         self.width = width
         self.pointer = pointer
         self.default_value = default_value
-        self.car_size = car_size
+        self.num_sensors = -1
         self.masks = []  # list of 359 masks representing all angles
         self._sensor_position = np.zeros((360, self.depth, 2))  # list of 359 sensor positions
         self.sensor_depth_array = np.array([self.depth, self.depth])
@@ -260,6 +276,7 @@ class SensorBuilder:
     def generate_sensors(self, sensor_angles: list[int] = None, sensor_range=None) -> list:
         """
         - Generate a cached list of sensors
+        :param sensor_range: an optional parameter allowing for sensor values to be defined by a range
         :param sensor_angles - list of angles for sensors
         :param range - (start_angle, end_angle, step)
         """
@@ -267,6 +284,7 @@ class SensorBuilder:
         if range is not None and sensor_angles is None:
             sensor_angles = range(*sensor_range)
         for angle in sensor_angles:
+            self.num_sensors = len(sensor_angles)
             sensors.append(
                 Sensor(
                     sb=self, sensor_depth=self.depth, angle=angle, default_val=self.default_value,
@@ -279,7 +297,6 @@ class SensorBuilder:
         """
         - Generate a cached list of sensor masks to be used to receive input
         """
-        vect = Velocity()
         for angle in range(360):
             a = Angle.create(angle)
             for step in range(self.depth):
@@ -359,9 +376,8 @@ class Sensor:
         car_v: Velocity = simulation.car.velocity
         border_mask = simulation.border_mask
         angle = car_v.angle + Angle(self.angle)
-        print("car angle: ", car_v.angle)
-        print("mask angle: ", angle)
-
+        # print("car angle: ", car_v.angle)
+        # print("mask angle: ", angle)
         for point in sensor_array:
             valid_point = 0 <= point[0] < simulation.track_border_width \
                           and 0 <= point[1] < simulation.track_border_height

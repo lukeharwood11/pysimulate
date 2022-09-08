@@ -1,62 +1,9 @@
 import os
 from abc import ABC, abstractmethod
 from time import time
-
+from gui.components import Label, TimedLabel, TimedLabelQueue
 import numpy as np
 import pygame
-
-
-class Label:
-
-    def __init__(self, position, text="", size=12, font=None, color=(0, 0, 0), refresh_count=None, background=None,
-                 anti_alias=False):
-        """
-        - Custom label class for rendering labels
-        :param position:
-        :param text:
-        :param size:
-        :param font:
-        :param color:
-        :param refresh_count:
-        :param background:
-        :param anti_alias:
-        """
-        self.font = font
-        self.original_text = text
-        self.text = text
-        self.color = color
-        self.size = size
-        self.position = position
-        self.background = background
-        self.anti_alias = anti_alias
-        self.refresh_count = refresh_count
-        self.current_count = 0
-
-        if font is None:
-            self.font = pygame.font.Font(pygame.font.get_default_font(), self.size)
-
-    def render(self, window):
-        text = self.font.render(self.text, self.anti_alias, self.color, self.background)
-        window.blit(text, self.position)
-
-    def append_text(self, text, refresh_count=None):
-        if refresh_count is not None:
-            self.refresh_count = refresh_count
-        if self.refresh_count is None or self.current_count >= self.refresh_count:
-            self.text = self.original_text + text
-            self.current_count = 0
-        else:
-            self.current_count += 1
-
-    def update_text(self, text, refresh_count=None):
-        if refresh_count is not None:
-            self.refresh_count = refresh_count
-        if self.refresh_count is None or self.current_count >= self.refresh_count:
-            self.original_text = text
-            self.text = text
-        else:
-            self.current_count += 1
-
 
 class Simulation(ABC):
 
@@ -81,7 +28,6 @@ class Simulation(ABC):
         :param num_episodes: the number of episodes (crashes) before the simulation dies
                             - None if the simulator runs forever
         """
-        self.fps_label = None
         pygame.init()
 
         # private attributes
@@ -105,6 +51,7 @@ class Simulation(ABC):
         self._max_episodes = num_episodes
         self._caption = caption
         self._track_offset = track_offset
+
         # a list of rects that have been updated since the last screen refresh
         self._rect_changed = []
         # helper attribute for calculating the actual fps
@@ -113,6 +60,10 @@ class Simulation(ABC):
 
         # public attributes
         self.window = pygame.display.set_mode(self._screen_dim)
+        # labels
+        self.fps_label = None
+        self.iteration_count_label = None
+        self.label_manager = TimedLabelQueue(self.window)
         # this value should be overridden by child class
         self.start_pos = (0, 0)
         # initialize car later
@@ -120,6 +71,7 @@ class Simulation(ABC):
 
         # handle init
         self.init_display()
+        self.init_iteration_count_label()
         self.init_fps_label()
         self.init_car_start_pos()
         self.convert_images()  # initializes the track
@@ -183,6 +135,10 @@ class Simulation(ABC):
         self.fps_label = Label((10, 10), "FPS: 0", size=30, font=None, color=(0, 0, 0), background=None,
                                anti_alias=False)
 
+    def init_iteration_count_label(self):
+        self.iteration_count_label = Label((1100, 10), "Iteration: ", size=30, font=None, color=(0, 0, 0),
+                                   background=(255, 255, 255), anti_alias=False)
+
     def simulate(self):
         """
         main 'game-loop' for simulation
@@ -237,14 +193,14 @@ class Simulation(ABC):
             pass
         collision = self.handle_collision()
         if collision:
-            print("YAY")
             self.reset()
         self.car.step(reward, collision, keys_pressed)
         self.car.update(simulation=self)
-        # print(self.car.velocity.angle)
-        # print(self.car.get_input())
         self.fps_label.append_text(str(self._calc_fps), self._calc_fps / 2)
+        self.iteration_count_label.append_text(str(self._iteration_num))
+        self.iteration_count_label.render(self.window)
         self.fps_label.render(self.window)
+        self.label_manager.render()
         self.update_debug_display(reward, collision)
         self.op_display()
 
@@ -271,6 +227,7 @@ class Simulation(ABC):
         Called whenever the car crashes and the simulation starts over
         :return:
         """
+        self._iteration_num += 1
         self.car.reset(simulation=self)
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - -
