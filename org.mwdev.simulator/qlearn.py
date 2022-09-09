@@ -136,7 +136,7 @@ class QLearningAgent(Agent):
         self._handle_training()
         actions = self._model.predict(inputs.reshape(1, self.num_inputs))
         action = np.argmax(actions)
-        if np.random.rand() > self.epsilon:
+        if np.random.rand() > self.epsilon and self._training_model:
             action = np.random.choice(np.arange(self.num_outputs))
         self._current_action = action
         print("Current Action:", action, "Current Reward:", reward, "Choices:", actions)
