@@ -33,6 +33,7 @@ class Vehicle(ABC):
         self.num_outputs = num_outputs
         self.driver = driver
         self.death_count = 0
+        self.current_action = []
         self.sensors: list[Sensor] = []
         # private attributes
         self._normalize = normalize

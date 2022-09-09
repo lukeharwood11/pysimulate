@@ -38,6 +38,11 @@ class DefaultSimulation(Simulation, ABC):
         """
         self.start_pos = (875, 100)
 
+    def update_and_display_arrow_display(self):
+        self.arrow_display.render(
+            self.window, (520, 500), current_actions=self.car.current_action
+        )
+
     def init_track(self) -> (str, str, str):
         """
         Should set the images of the track (paths to the images):
@@ -135,6 +140,7 @@ class Car(Vehicle, ABC):
         i = self._get_vehicle_input()
         direction = self.driver.update(inputs=i, wall_collision=collision, reward_collision=reward,
                                        keys_pressed=keys_pressed)
+        self.current_action = direction
         accel = False
         if direction.count(0) > 0:
             self.turn(left=True)
@@ -219,7 +225,6 @@ class GameControlDriver(Agent, ABC):
 
 
 def main():
-    NUM_SENSORS = 10
 
     car = Car(
         driver=None,
@@ -231,7 +236,7 @@ def main():
 
     simulation = DefaultSimulation(
         debug=False,
-        fps=None,  # None means simulation fps is not tracked (Suggested for training)
+        fps=35,  # None means simulation fps is not tracked (Suggested for training)
         num_episodes=None,
         caption="Default Simulation",
         car=car,

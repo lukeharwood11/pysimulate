@@ -1,7 +1,7 @@
 import os
 from abc import ABC, abstractmethod
 from time import time
-from gui.components import Label, TimedLabel, TimedLabelQueue
+from gui.components import Label, TimedLabel, TimedLabelQueue, ArrowKeysDisplay
 import numpy as np
 import pygame
 
@@ -67,11 +67,18 @@ class Simulation(ABC):
         self.car_speed_label = None
         self.odometer_label = None
         self.label_manager = TimedLabelQueue(self.window)
+        self.arrow_display = ArrowKeysDisplay(
+            unselected_color=(255, 255, 255),
+            selected_color=(255, 0, 255),
+            border=(0, 0, 0),
+            scale=1,
+            position=None
+        )
         # this value should be overridden by child class
         self.start_pos = (0, 0)
         # initialize car later
         self.car = car
-        self._car_top_speed = 0
+        self._car_top_distance = 0
 
         # handle init
         self.init_display()
@@ -146,15 +153,15 @@ class Simulation(ABC):
 
     def init_fps_label(self):
         self.fps_label = Label((10, 10), "FPS: 0", size=30, font=None, color=(0, 0, 0), background=None,
-                               anti_alias=False)
+                               anti_alias=True)
 
     def init_car_label(self):
-        self.car_label = Label((10, self._screen_dim[1] - 40), "Top Speed: ", size=30, font=None, color=(0, 0, 0),
-                               background=(255, 255, 255), anti_alias=False)
+        self.car_label = Label((10, self._screen_dim[1] - 40), "Longest Drive: ", size=30, font=None, color=(0, 0, 0),
+                               background=(255, 255, 255), anti_alias=True)
 
     def init_iteration_count_label(self):
         self.iteration_count_label = Label((1100, 10), "Iteration: ", size=30, font=None, color=(0, 0, 0),
-                                   background=(255, 255, 255), anti_alias=False)
+                                   background=(255, 255, 255), anti_alias=True)
 
     def simulate(self):
         """
@@ -215,12 +222,17 @@ class Simulation(ABC):
         self.car.update(simulation=self)
         self.update_debug_display(reward, collision)
         self.update_and_display_labels()
+        self.update_and_display_arrow_display()
         self.op_display()
+
+    @abstractmethod
+    def update_and_display_arrow_display(self):
+        pass
 
     def update_and_display_labels(self):
         self.fps_label.append_text(str(self._calc_fps), self._calc_fps / 2)
-        self._car_top_speed = max(self._car_top_speed, self.car.velocity.speed)
-        self.car_label.append_text(str(round(self._car_top_speed)), self._calc_fps / 2)
+        self._car_top_distance = max(self._car_top_distance, self.car.odometer)
+        self.car_label.append_text(str(round(self._car_top_distance)), refresh_count=None)
         self.car_speed_label.append_text(str(round(self.car.velocity.speed)), self._calc_fps / 2, append_to_front=True)
         self.odometer_label.append_text(str(round(self.car.odometer)), refresh_count=None, append_to_front=True)
         self.iteration_count_label.append_text(str(self._iteration_num))

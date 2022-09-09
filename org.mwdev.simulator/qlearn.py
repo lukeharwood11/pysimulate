@@ -126,10 +126,10 @@ class QLearningAgent(Agent):
         self._handle_collision(wall_collision)
         reward = self._handle_reward(reward, reward_collision)
         # If the user presses the down key- restart the simulation
-        if keys_pressed[K_DOWN]:
+        if keys_pressed[K_DOWN] and self._training_model:
             reward = self._handle_restart(reward)
         # If the user presses the up key- simply train the model
-        if keys_pressed[K_UP]:
+        if keys_pressed[K_UP] and self._training_model:
             self._train_model()
         reward = self._qlearn_params.speed_reward(reward, self.simulation.car.velocity.speed)
         self._handle_experience(reward, inputs)
