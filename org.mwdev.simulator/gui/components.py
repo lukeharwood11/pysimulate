@@ -31,15 +31,15 @@ class Label:
         if font is None:
             self.font = pygame.font.Font(pygame.font.get_default_font(), self.size)
 
-    def render(self, window):
+    def render(self, window, position=None):
         text = self.font.render(self.text, self.anti_alias, self.color, self.background)
-        window.blit(text, self.position)
+        window.blit(text, self.position if position is None else position)
 
-    def append_text(self, text, refresh_count=None):
+    def append_text(self, text, refresh_count=None, append_to_front=False):
         if refresh_count is not None:
             self.refresh_count = refresh_count
         if self.refresh_count is None or self.current_count >= self.refresh_count:
-            self.text = self.original_text + text
+            self.text = self.original_text + text if not append_to_front else text + self.original_text
             self.current_count = 0
         else:
             self.current_count += 1

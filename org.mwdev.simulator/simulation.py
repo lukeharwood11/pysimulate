@@ -64,11 +64,14 @@ class Simulation(ABC):
         self.fps_label = None
         self.iteration_count_label = None
         self.car_label = None
+        self.car_speed_label = None
+        self.odometer_label = None
         self.label_manager = TimedLabelQueue(self.window)
         # this value should be overridden by child class
         self.start_pos = (0, 0)
         # initialize car later
         self.car = car
+        self._car_top_speed = 0
 
         # handle init
         self.init_display()
@@ -76,7 +79,15 @@ class Simulation(ABC):
         self.init_fps_label()
         self.init_car_start_pos()
         self.init_car_label()
+        self.init_car_stat_labels()
         self.convert_images()  # initializes the track
+
+    def init_car_stat_labels(self):
+        self.odometer_label = Label(position=(600, self._screen_dim[1] - 50), text=" Pixels", size=40, font=None,
+                                    color=(255, 255, 255), refresh_count=None, background=None, anti_alias=True)
+        # Position is arbitrary as it will be moved
+        self.car_speed_label = Label(position=(0, 0), text=" PPF", size=40, font=None,
+                                 color=(0, 0, 0), refresh_count=None, background=None, anti_alias=True)
 
     @abstractmethod
     def init_car_start_pos(self):
@@ -138,7 +149,7 @@ class Simulation(ABC):
                                anti_alias=False)
 
     def init_car_label(self):
-        self.car_label = Label((10, self._screen_dim[1] - 40), "Speed: ", size=30, font=None, color=(0, 0, 0),
+        self.car_label = Label((10, self._screen_dim[1] - 40), "Top Speed: ", size=30, font=None, color=(0, 0, 0),
                                background=(255, 255, 255), anti_alias=False)
 
     def init_iteration_count_label(self):
@@ -208,10 +219,15 @@ class Simulation(ABC):
 
     def update_and_display_labels(self):
         self.fps_label.append_text(str(self._calc_fps), self._calc_fps / 2)
-        self.car_label.append_text(str(round(self.car.velocity.speed)), self._calc_fps / 2)
+        self._car_top_speed = max(self._car_top_speed, self.car.velocity.speed)
+        self.car_label.append_text(str(round(self._car_top_speed)), self._calc_fps / 2)
+        self.car_speed_label.append_text(str(round(self.car.velocity.speed)), self._calc_fps / 2, append_to_front=True)
+        self.odometer_label.append_text(str(round(self.car.odometer)), refresh_count=None, append_to_front=True)
         self.iteration_count_label.append_text(str(self._iteration_num))
         self.iteration_count_label.render(self.window)
         self.car_label.render(self.window)
+        self.car_speed_label.render(self.window, position=(self.car.velocity.x + 10, self.car.velocity.y - 40))
+        self.odometer_label.render(self.window)
         self.fps_label.render(self.window)
         self.label_manager.render()
 

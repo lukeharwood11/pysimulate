@@ -7,7 +7,7 @@ from simulation import Simulation
 from vehicle import Vehicle, SensorBuilder
 from qlearn import QLearningAgent
 from pygame import (K_UP, K_DOWN, K_LEFT, K_RIGHT, transform)
-from gui.components import TimedLabel, TimedLabelQueue
+from gui.components import TimedLabel, Label
 import os
 
 
@@ -62,9 +62,12 @@ class Car(Vehicle, ABC):
             driver=driver,
             scale=1,
             debug=debug,
+            max_speed=20,
             sensor_depth=sensor_depth,
             normalize=normalize
         )
+        self.odometer_label = None
+        self.speed_label = None
         self.acceleration_multiplier = acceleration_multiplier
         self.model_path = os.path.join("assets", "models")
 
@@ -100,7 +103,7 @@ class Car(Vehicle, ABC):
         Accelerate the car
         :return: None
         """
-        if self.velocity.speed < self.max_speed:
+        if self.ignore_max_speed or self.velocity.speed < self.max_speed:
             self.velocity.speed += self.acceleration_multiplier
 
     def turn(self, left=False, right=False):
@@ -227,7 +230,7 @@ def main():
     )
 
     simulation = DefaultSimulation(
-        debug=True,
+        debug=False,
         fps=None,  # None means simulation fps is not tracked (Suggested for training)
         num_episodes=None,
         caption="Default Simulation",
@@ -264,7 +267,7 @@ def main():
             replay_mem_max=400,
             save_after=100,
             load_latest_model=True,
-            training_model=True,
+            training_model=False,
             model_path=None,
             train_each_step=False,
             debug=False,

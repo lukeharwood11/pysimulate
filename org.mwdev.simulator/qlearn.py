@@ -128,6 +128,9 @@ class QLearningAgent(Agent):
         # If the user presses the down key- restart the simulation
         if keys_pressed[K_DOWN]:
             reward = self._handle_restart(reward)
+        # If the user presses the up key- simply train the model
+        if keys_pressed[K_UP]:
+            self._train_model()
         reward = self._qlearn_params.speed_reward(reward, self.simulation.car.velocity.speed)
         self._handle_experience(reward, inputs)
         self._handle_training()
@@ -177,10 +180,11 @@ class QLearningAgent(Agent):
                 reward -= self._qlearn_params.reward - self._qlearn_params.other
             else:
                 self._last_reward_time = time.time()
-                self.simulation.label_manager.display_label(TimedLabel(
-                    position=(550, 600), timeout=2.0, queue=self.simulation.label_manager, text="Reward Found!", size=30,
-                    font=None, color=(255, 255, 255), refresh_count=None, background=(0, 0, 0), anti_alias=True
-                ), force=True)
+                if self._debug:
+                    self.simulation.label_manager.display_label(TimedLabel(
+                        position=(550, 600), timeout=2.0, queue=self.simulation.label_manager, text="Reward Found!", size=30,
+                        font=None, color=(255, 255, 255), refresh_count=None, background=(0, 0, 0), anti_alias=True
+                    ), force=True)
             self._rewarded_currently = True
         else:
             self._rewarded_currently = False
