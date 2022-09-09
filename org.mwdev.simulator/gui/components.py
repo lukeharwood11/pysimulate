@@ -1,5 +1,59 @@
+import numpy as np
 import pygame
 import time
+
+
+class ArrowKeysDisplay:
+
+    def __init__(self, unselected_color, selected_color, border=None, scale=1, position=None):
+        self.position = position
+        self.scale = scale
+        self.unselected_color = unselected_color
+        self.selected_color = selected_color
+        self.border = border
+        self.width = 100  # pixels
+        # rectangles
+        self._left_key_rect = None
+        self._up_key_rect = None
+        self._right_key_rect = None
+        self._down_key_rect = None
+        self.build_model()
+
+    def render(self, window, position, current_actions: list[int]):
+        """
+
+        :param window: window to blit model onto
+        :param current_actions: list of actions that the agent has choosen
+        :param position: position on the screen for the model to be printed on
+        :param current_action:
+        :return:
+        """
+        pygame.draw.rect(window, (self.unselected_color if current_actions.count(0) == 0 else self.selected_color),
+                         self._left_key_rect.move(*position), border_radius=10)
+        pygame.draw.rect(window, (self.unselected_color if current_actions.count(1) == 0 else self.selected_color),
+                         self._up_key_rect.move(*position), border_radius=10)
+        pygame.draw.rect(window, (self.unselected_color if current_actions.count(2) == 0 else self.selected_color),
+                         self._right_key_rect.move(*position), border_radius=10)
+        pygame.draw.rect(window, (self.unselected_color if current_actions.count(3) == 0 else self.selected_color),
+                         self._down_key_rect.move(*position), border_radius=10)
+        if self.border is not None:
+            pygame.draw.rect(window, self.border,
+                             self._left_key_rect.move(*position), width=10, border_radius=10)
+            pygame.draw.rect(window, self.border,
+                             self._up_key_rect.move(*position), width=10, border_radius=10)
+            pygame.draw.rect(window, self.border,
+                             self._right_key_rect.move(*position), width=10, border_radius=10)
+            pygame.draw.rect(window, self.border,
+                             self._down_key_rect.move(*position), width=10, border_radius=10)
+
+
+    def build_model(self) -> np.array:
+        # format is x1, y1, width, height
+        self.width *= self.scale
+        self._up_key_rect = pygame.rect.Rect(self.width, 0, self.width, self.width)
+        self._left_key_rect = pygame.rect.Rect(0, self.width, self.width, self.width)
+        self._down_key_rect = pygame.rect.Rect(self.width, self.width, self.width, self.width)
+        self._right_key_rect = pygame.rect.Rect(self.width * 2, self.width, self.width, self.width)
 
 
 class Label:
@@ -70,7 +124,8 @@ class TimedLabel(Label):
         :param background:
         :param anti_alias:
         """
-        super().__init__(position=position, text=text, size=size, font=font, color=color, refresh_count=refresh_count, background=background, anti_alias=anti_alias)
+        super().__init__(position=position, text=text, size=size, font=font, color=color, refresh_count=refresh_count,
+                         background=background, anti_alias=anti_alias)
         self.time_created = time.time()
         self.timeout = timeout
         self.queue = queue
