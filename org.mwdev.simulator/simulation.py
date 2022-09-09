@@ -215,7 +215,6 @@ class Simulation(ABC):
         self.fps_label.render(self.window)
         self.label_manager.render()
 
-
     # TODO implement
     def op_display(self):
         """

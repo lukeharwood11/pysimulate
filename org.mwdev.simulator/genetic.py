@@ -1,6 +1,12 @@
 from abc import ABC
-
 from agent import Agent
+from example import DefaultSimulation
+
+
+class GeneticAlgorithmSimulation(DefaultSimulation, ABC):
+
+    def __init__(self):
+        super().__init__()
 
 
 class GeneticNeuralNetwork:
