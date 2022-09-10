@@ -278,10 +278,16 @@ class SensorBuilder:
             sensors.append(
                 Sensor(
                     sb=self, sensor_depth=self.depth, angle=angle, default_val=self.default_value,
-                    offset=np.array(self.offset), line_width=self.width, line_color=self.color, pointer=self.pointer
+                    offset=np.array(self.offset), line_width=self.width, line_color=self.color if self.color != "random" else self.generate_random_color(), pointer=self.pointer
                 )
             )
         return sensors
+
+    def generate_random_color(self):
+        r = np.random.rand() * 255
+        g = np.random.rand() * 255
+        b = np.random.rand() * 255
+        return int(r), int(g), int(b)
 
     def generate_sensor_points(self):
         """

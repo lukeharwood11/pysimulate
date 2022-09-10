@@ -33,6 +33,9 @@ class CollisionSet:
     def crash_list(self):
         return self.data == 1
 
+    def collision_at(self, index):
+        return self.data[index] == 1
+
     def full_collision(self):
         return self.data == np.ones(self._mini_batch_size)
 
