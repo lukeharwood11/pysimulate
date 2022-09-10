@@ -55,14 +55,13 @@ class DefaultSimulation(Simulation, ABC):
 
 class Car(Vehicle, ABC):
 
-    def __init__(self, driver, sensor_depth, debug=False, acceleration_multiplier=.5, normalize=True):
+    def __init__(self, driver, debug=False, acceleration_multiplier=.5, normalize=True):
         super(Car, self).__init__(
             num_outputs=5,
             image_path=os.path.join("assets", "grey-car.png"),
             driver=driver,
             scale=1,
             debug=debug,
-            sensor_depth=sensor_depth,
             normalize=normalize
         )
         self.acceleration_multiplier = acceleration_multiplier
@@ -216,11 +215,9 @@ class GameControlDriver(Agent, ABC):
 
 
 def main():
-    NUM_SENSORS = 10
 
     car = Car(
         driver=None,
-        sensor_depth=200,
         debug=False,
         acceleration_multiplier=.5,
         normalize=True

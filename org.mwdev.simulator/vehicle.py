@@ -24,7 +24,6 @@ class Vehicle(ABC):
                  driver: Agent = None,
                  scale: int = 1,
                  debug: bool = False,
-                 sensor_depth: int = 100,
                  max_speed: int = 20,
                  normalize: bool = True):
         # public attributes
@@ -40,7 +39,6 @@ class Vehicle(ABC):
         self._image_angle_cache = []
         self._scale = scale
         self._debug = debug
-        self._sensor_depth = sensor_depth
         # vehicle info
         self.velocity = Velocity(x=0, y=0, angle=0)
         self.odometer = 0
@@ -147,14 +145,6 @@ class Vehicle(ABC):
                                  end_pos=(s.coords[0] if s.collision_point is None else s.collision_point[0],
                                           s.coords[1] if s.collision_point is None else s.collision_point[1]),
                                  width=s.line_width)
-
-    def get_input(self) -> list[int]:
-        """
-        retrieve the inputs for the vehicle as a list of (normalized) floats representing the distance
-        of the vehicle to the nearby walls.
-        :return:
-        """
-        return [s.value / self._sensor_depth if s != 0 else 0 for s in self.sensors]
 
     @abstractmethod
     def configure_image(self):
