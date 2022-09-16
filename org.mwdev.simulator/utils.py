@@ -37,7 +37,12 @@ class CollisionSet:
         return self.data[index] == 1
 
     def full_collision(self):
-        return self.data == np.ones(self._mini_batch_size)
+        return self.data == np.ones(len(self.data))
 
-    def clear(self):
-        self.data = np.zeros(self._mini_batch_size)
+    def clear(self, mini_batch_size):
+        """
+        mini_batch_size can be smaller than self.mini_batch_size
+        :param mini_batch_size:
+        :return:
+        """
+        self.data = np.zeros(mini_batch_size)

@@ -26,7 +26,7 @@ class GeneticCar(Car):
             params = {
                 'acceleration_multiplier': .5,
                 'normalize': True,
-                'debug': False
+                'debug': True
             }
         return np.array([GeneticCar(
             driver=None, car_number=num, **params
@@ -108,12 +108,14 @@ class GeneticCarSet:
         self.car_offset = self.cars[0].image.get_width() / 2, self.cars[0].image.get_height() / 2
         self.mini_batch_size = mini_batch_size
         # batch state
+        self.batch_results_index = 0
         self.batch_results = np.zeros(self.batch_size)
         # mini-batch state
         self.mini_batch_index = self.mini_batch_size
         self.mini_batch = self.cars[:self.mini_batch_size]
         self.collision_set = CollisionSet(mini_batch_size=mini_batch_size)
-
+        self.speed_zero_counter = np.zeros(mini_batch_size)
+        self._speed_zero_max = 50
         # other
         # simulation must be set prior to running simulation.simulate()
         self.simulation = None
@@ -123,6 +125,15 @@ class GeneticCarSet:
             print("Initializing car image conversion...")
             for car in self.cars:
                 car.image = car.image.convert()
+
+    def weed_the_weak(self):
+        for i, car in enumerate(self.mini_batch):
+            if car.velocity.speed <= 1:
+                if self.speed_zero_counter[i] >= self._speed_zero_max:
+                    self.collision_set.set_collision(i)
+                    car.collision = True
+                else:
+                    self.speed_zero_counter[i] += 1
 
     def get_external_inputs(self):
         return self.cars[0].get_external_inputs()
@@ -153,19 +164,26 @@ class GeneticCarSet:
         reset the collision_set and queue the next set of cars
         :return:
         """
-        self.collision_set.clear()
+        print("Batch Index:", self.mini_batch_index)
+        print("Longest Distance:", simulation.longest_distance)
+        self.speed_zero_counter = np.zeros(self.mini_batch_size)
         for car in self.mini_batch:
-            car.reset(self.simulation)
+            self.batch_results[self.batch_results_index] = car.odometer
+            self.batch_results_index += 1
+            simulation.longest_distance = max(simulation.longest_distance, car.odometer)
+            car.reset(simulation)
 
         # If the batch is done
         if self.mini_batch_index >= len(self.cars):
             self.clean_up_iteration(simulation)
-        else:
-            next_index = self.mini_batch_index + self.mini_batch_size
-            # grab the next mini_batch of cars
-            self.mini_batch = self.cars[
-                              self.mini_batch_index: next_index if next_index < len(self.cars) else len(self.cars) - 1]
-            self.mini_batch_index += self.mini_batch_size
+            self.batch_results_index = 0
+            self.mini_batch_index = 0
+        next_index = self.mini_batch_index + self.mini_batch_size
+        # grab the next mini_batch of cars
+        self.mini_batch = self.cars[
+                          self.mini_batch_index: next_index if next_index < len(self.cars) else len(self.cars)]
+        self.mini_batch_index += self.mini_batch_size
+        self.collision_set.clear(len(self.mini_batch))
 
     def clean_up_iteration(self, simulation):
         """
@@ -177,9 +195,8 @@ class GeneticCarSet:
         parent_cars = self.cars[s[-2:]]
         driver1, driver2 = parent_cars[0].driver, parent_cars[1].driver
         # Note: new_drivers includes driver1 and driver2
-        new_drivers = driver1.cross_over_mutation(driver2, num_mutations=self.batch_size)
+        new_drivers = driver1.cross_over_mutation(driver2, total_batch_size=self.batch_size)
         self.initialize_drivers(new_drivers, simulation)
-        return parent_cars[2].odometer
 
     def update_sensors(self, window, simulation):
         for i, car in enumerate(self.mini_batch):
@@ -244,6 +261,7 @@ class GeneticAlgorithmSimulation:
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         self._clock = pygame.time.Clock()
         self.iteration_num = 1
+        self.longest_distance = 0
         self._debug = debug
         self._max_episodes = num_episodes
         self._caption = caption
@@ -368,6 +386,8 @@ class GeneticAlgorithmSimulation:
         self.cars.update_sensors(self.window, self)
         # update the collision set to determine if all cars in the minibatch have 'crashed'
         self.handle_collision()
+        # if a car "stalls" call it a collision
+        self.cars.weed_the_weak()
         # Only call reset when all cars have 'died'
         self.cars.handle_reset(self)
         self.cars.step_mini_batch(keys_pressed=keys_pressed)
@@ -506,11 +526,11 @@ class GeneticAlgorithmDriver(Agent, ABC):
         """
         child_driver = GeneticAlgorithmDriver(self.num_inputs, self.num_outputs, "({} & {})".format(self.driver_id, other.driver_id), self.epsilon)
         cross_over_point = np.random.randint(self.w1.shape[1])
-        child_driver.w1 = np.hstack((self.w1[:, :cross_over_point], other.w2[:, cross_over_point:]))
+        child_driver.w1 = np.hstack((self.w1[:, :cross_over_point], other.w1[:, cross_over_point:]))
         cross_over_point = np.random.randint(self.w2.shape[1])
-        child_driver.w2 = np.hstack((self.w1[:, :cross_over_point], other.w2[:, cross_over_point:]))
+        child_driver.w2 = np.hstack((self.w2[:, :cross_over_point], other.w2[:, cross_over_point:]))
         cross_over_point = np.random.randint(self.w3.shape[1])
-        child_driver.w3 = np.hstack((self.w1[:, :cross_over_point], other.w2[:, cross_over_point:]))
+        child_driver.w3 = np.hstack((self.w3[:, :cross_over_point], other.w3[:, cross_over_point:]))
         return child_driver
 
     def mutate(self, num_mutations):
@@ -574,14 +594,14 @@ def main():
     # the number of cars within a particular batch
     BATCH_SIZE = 100
     # the number of cars to render on the screen at once
-    MINI_BATCH_SIZE = 3
+    MINI_BATCH_SIZE = 5
     # step 1: generate cars, and create a new car set
     genetic_cars = GeneticCar.generate_cars(BATCH_SIZE, params=None)
     car_set = GeneticCarSet(genetic_cars, MINI_BATCH_SIZE)
     # step 2: generate genetic simulation
     simulation = GeneticAlgorithmSimulation(
         debug=True,
-        fps=40,
+        fps=None,
         num_episodes=None,
         cars=car_set,
         track_offset=(0, 0),

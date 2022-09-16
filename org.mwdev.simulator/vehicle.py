@@ -278,12 +278,15 @@ class SensorBuilder:
             sensor_angles = range(*sensor_range)
 
         for i in range(num_sets):
+            color = self.color
+            if self.color == "random":
+                color = self.generate_random_color()
             for angle in sensor_angles:
                 self.num_sensors = len(sensor_angles)
                 sensors.append(
                     Sensor(
                         sb=self, sensor_depth=self.depth, angle=angle, default_val=self.default_value,
-                        offset=np.array(self.offset), line_width=self.width, line_color=self.color if self.color != "random" else self.generate_random_color(), pointer=self.pointer
+                        offset=np.array(self.offset), line_width=self.width, line_color=color, pointer=self.pointer
                     )
                 )
             bin.append(sensors)
@@ -390,7 +393,7 @@ class Sensor:
             bit = border_mask.get_at((point[0], point[1]))
             if bit == 1:
                 if self.pointer:
-                    x, y = point[0] - 5 / 2, point[1] - 5 / 2
+                    x, y = point[0], point[1]
                     draw.circle(simulation.window, (255, 255, 255), (x, y), 5)
                 self.value = car_v.distance_between(
                     other=Vector2D(x=point[0], y=point[1]),
