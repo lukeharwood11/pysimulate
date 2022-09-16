@@ -3,6 +3,8 @@ from time import time
 
 import numpy as np
 import pygame
+from pygame import K_DOWN
+
 from gui.components import TimedLabelQueue, TimedLabel, Label
 from agent import Agent
 from example import Car
@@ -90,9 +92,11 @@ class GeneticCar(Car):
         self.blit_rotate_center(window, (self.velocity.x, self.velocity.y))
         if self.collision:
             pygame.draw.line(window, (255, 0, 0), (self.velocity.x, self.velocity.y),
-                             (self.velocity.x + self.current_image.get_width(), self.velocity.y + self.current_image.get_width()), width=10)
+                             (self.velocity.x + self.current_image.get_width(),
+                              self.velocity.y + self.current_image.get_width()), width=10)
             pygame.draw.line(window, (255, 0, 0), (self.velocity.x, self.velocity.y + self.current_image.get_width()),
                              (self.velocity.x + self.current_image.get_width(), self.velocity.y), width=10)
+
 
 class GeneticCarSet:
 
@@ -204,7 +208,13 @@ class GeneticCarSet:
                 car.update_sensors(window, simulation)
 
     def step_mini_batch(self, keys_pressed):
+        force_reset = False
+        if keys_pressed[K_DOWN]:
+            force_reset = True
         for i, car in enumerate(self.mini_batch):
+            if force_reset:
+                car.collision = True
+                self.collision_set.set_collision(i)
             if not self.collision_set.collision_at(i):
                 car.step(
                     reward=False,
@@ -455,7 +465,6 @@ class GeneticAlgorithmSimulation:
         """
         self.iteration_num += 1
 
-
     def init_car_start_pos(self):
         """
         sets the start position of the car
@@ -491,9 +500,9 @@ class GeneticAlgorithmDriver(Agent, ABC):
     def forward(self, input_arr: np.array):
         # input shape is (1, num_input)
         pass1 = np.matmul(input_arr, self.w1)  # pass1 has shape of (1, 32)
-        pass2 = np.matmul(pass1, self.w2)      # pass2 has shape of (1, 16)
-        pass3 = np.matmul(pass2, self.w3)      # pass3 has shape of (1, num_outputs)
-        return np.tanh(pass3)                  # shape is still (1, num_outputs)
+        pass2 = np.matmul(pass1, self.w2)  # pass2 has shape of (1, 16)
+        pass3 = np.matmul(pass2, self.w3)  # pass3 has shape of (1, num_outputs)
+        return np.tanh(pass3)  # shape is still (1, num_outputs)
 
     def update(self, inputs, reward_collision=False, wall_collision=False, keys_pressed=None) -> list[int]:
         """
@@ -524,7 +533,8 @@ class GeneticAlgorithmDriver(Agent, ABC):
         :param other:
         :return:
         """
-        child_driver = GeneticAlgorithmDriver(self.num_inputs, self.num_outputs, "({} & {})".format(self.driver_id, other.driver_id), self.epsilon)
+        child_driver = GeneticAlgorithmDriver(self.num_inputs, self.num_outputs,
+                                              "({} & {})".format(self.driver_id, other.driver_id), self.epsilon)
         cross_over_point = np.random.randint(self.w1.shape[1])
         child_driver.w1 = np.hstack((self.w1[:, :cross_over_point], other.w1[:, cross_over_point:]))
         cross_over_point = np.random.randint(self.w2.shape[1])
@@ -540,7 +550,8 @@ class GeneticAlgorithmDriver(Agent, ABC):
         """
         mutations = []
         for i in range(num_mutations):
-            mutation = GeneticAlgorithmDriver(self.num_inputs, self.num_outputs, driver_id="{}_{}".format(self.driver_id, i), epsilon=self.epsilon)
+            mutation = GeneticAlgorithmDriver(self.num_inputs, self.num_outputs,
+                                              driver_id="{}_{}".format(self.driver_id, i), epsilon=self.epsilon)
             mutation_arr = self.generate_mutation_arr()  # generate mutations and masks
             # read following as add mutations to self.w1 at the positions where the mask is less than epsilon
             mutation.w1 = self.w1 + mutation_arr[0][0] * (mutation_arr[0][1] < self.epsilon)
@@ -557,9 +568,8 @@ class GeneticAlgorithmDriver(Agent, ABC):
         shapes = [self.w1.shape, self.w2.shape, self.w3.shape]
         for i in shapes:
             # range = number of layers
-            ret.append((2 * np.random.random(i) - 1, np.random.random(i)))
+            ret.append((np.random.random(i) - .5, np.random.random(i)))
         return ret
-
 
     @staticmethod
     def generate_drivers(num_drivers, num_inputs, num_outputs, epsilon):
@@ -625,7 +635,7 @@ def main():
     num_inputs = car_set.get_external_inputs() + sb.num_sensors
     num_outputs = Car.get_num_outputs()
     # step 4: initialize the drivers given the input/output numbers and put them in the cars
-    initial_drivers = GeneticAlgorithmDriver.generate_drivers(BATCH_SIZE, num_inputs, num_outputs, epsilon=.25)
+    initial_drivers = GeneticAlgorithmDriver.generate_drivers(BATCH_SIZE, num_inputs, num_outputs, epsilon=.50)
     car_set.initialize_drivers(drivers=initial_drivers, simulation=simulation)
     # step 5: simulate!
     simulation.simulate()
