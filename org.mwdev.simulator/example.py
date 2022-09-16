@@ -68,7 +68,6 @@ class Car(Vehicle, ABC):
             scale=1,
             debug=debug,
             max_speed=20,
-            sensor_depth=sensor_depth,
             normalize=normalize
         )
         self.odometer_label = None
