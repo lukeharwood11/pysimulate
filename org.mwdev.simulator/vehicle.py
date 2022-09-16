@@ -24,14 +24,15 @@ class Vehicle(ABC):
                  driver: Agent = None,
                  scale: int = 1,
                  debug: bool = False,
-                 sensor_depth: int = 100,
                  max_speed: int = 20,
+                 ignore_max_speed: bool = False,
                  normalize: bool = True):
         # public attributes
         super().__init__()
         self.num_outputs = num_outputs
         self.driver = driver
         self.death_count = 0
+        self.current_action = []
         self.sensors: list[Sensor] = []
         # private attributes
         self._normalize = normalize
@@ -40,11 +41,11 @@ class Vehicle(ABC):
         self._image_angle_cache = []
         self._scale = scale
         self._debug = debug
-        self._sensor_depth = sensor_depth
         # vehicle info
         self.velocity = Velocity(x=0, y=0, angle=0)
         self.odometer = 0
         self.max_speed = max_speed
+        self.ignore_max_speed = ignore_max_speed
         self.current_image = None
         self.image = None
         self.init_car_image()
@@ -64,6 +65,7 @@ class Vehicle(ABC):
 
     def init_car_image(self):
         self.image = image.load(self._image_path)
+        self.current_image = image
         self.configure_image()
         # todo optimize image processing
         # for i in range(359):
@@ -133,7 +135,7 @@ class Vehicle(ABC):
         :return: None
         """
         # get (x1,y1,x2,y2) tuples for all sensor positions
-        s = [sensor.update(window=window, simulation=simulation) for sensor in self.sensors]
+        s = [sensor.update(window=window, simulation=simulation, car=self) for sensor in self.sensors]
         if self._debug:
             self.display_sensor(car_pos=simulation.get_vehicle_image_position(), window=window)
 
@@ -147,14 +149,6 @@ class Vehicle(ABC):
                                  end_pos=(s.coords[0] if s.collision_point is None else s.collision_point[0],
                                           s.coords[1] if s.collision_point is None else s.collision_point[1]),
                                  width=s.line_width)
-
-    def get_input(self) -> list[int]:
-        """
-        retrieve the inputs for the vehicle as a list of (normalized) floats representing the distance
-        of the vehicle to the nearby walls.
-        :return:
-        """
-        return [s.value / self._sensor_depth if s != 0 else 0 for s in self.sensors]
 
     @abstractmethod
     def configure_image(self):
@@ -252,9 +246,10 @@ class SensorBuilder:
         self.offset = 0, 0
         self.generate_sensor_points()
 
-    def get_sensor_pos(self, car_angle, sensor_angle):
+    def get_sensor_pos(self, car, car_angle, sensor_angle):
         """
 
+        :param car: the car object
         :param car_angle: the angle of the vehicle
         :param sensor_angle: the angle of the sensor relative to the car
         :param offset:
@@ -263,7 +258,7 @@ class SensorBuilder:
         # Get the sensor position given the current angle and position of the car
         sensor_absolute_angle = car_angle + sensor_angle
         sensor_pos = self._sensor_position[sensor_absolute_angle.round().value]
-        return sensor_pos + self.simulation.get_vehicle_image_position()
+        return sensor_pos + car.get_vehicle_image_position()
 
     def get_sensor_offset(self):
         """
@@ -273,7 +268,7 @@ class SensorBuilder:
         return (car_v.x - self.depth + self.simulation.car.image.get_width() / 2,
                 car_v.y - self.depth + self.simulation.car.image.get_height() / 2)
 
-    def generate_sensors(self, sensor_angles: list[int] = None, sensor_range=None) -> list:
+    def generate_sensors(self, sensor_angles: list[int] = None, sensor_range=None, num_sets=1) -> list:
         """
         - Generate a cached list of sensors
         :param sensor_range: an optional parameter allowing for sensor values to be defined by a range
@@ -281,17 +276,32 @@ class SensorBuilder:
         :param range - (start_angle, end_angle, step)
         """
         sensors = []
+        bin = []
         if range is not None and sensor_angles is None:
             sensor_angles = range(*sensor_range)
-        for angle in sensor_angles:
-            self.num_sensors = len(sensor_angles)
-            sensors.append(
-                Sensor(
-                    sb=self, sensor_depth=self.depth, angle=angle, default_val=self.default_value,
-                    offset=np.array(self.offset), line_width=self.width, line_color=self.color, pointer=self.pointer
+
+        for i in range(num_sets):
+            color = self.color
+            if self.color == "random":
+                color = self.generate_random_color()
+            for angle in sensor_angles:
+                self.num_sensors = len(sensor_angles)
+                sensors.append(
+                    Sensor(
+                        sb=self, sensor_depth=self.depth, angle=angle, default_val=self.default_value,
+                        offset=np.array(self.offset), line_width=self.width, line_color=color, pointer=self.pointer
+                    )
                 )
-            )
-        return sensors
+            bin.append(sensors)
+            sensors = []
+        # Return the list of sensors, or if it's a batch of sensors, return the whole batch
+        return bin[0] if num_sets == 1 else bin
+
+    def generate_random_color(self):
+        r = np.random.rand() * 255
+        g = np.random.rand() * 255
+        b = np.random.rand() * 255
+        return int(r), int(g), int(b)
 
     def generate_sensor_points(self):
         """
@@ -342,38 +352,39 @@ class Sensor:
         self.pointer = pointer
         self.collision_point = None
 
-    def update(self, window: pygame.surface.Surface, simulation: Simulation):
+    def update(self, window: pygame.surface.Surface, simulation: Simulation, car):
         """
         Update the surface and the value of the sensor
         :param window: pygame window
         :param simulation: Simulation
         :return: the line coordinates as a tuple
         """
-        car = simulation.car
 
         # update the value of the surface
         surface = pygame.surface.Surface(window.get_size())
         # coords has a shape of ([sensor_depth], 2)
-        sensor_array = self.sensor_builder.get_sensor_pos(car.velocity.angle, Angle(self.angle))
+        sensor_array = self.sensor_builder.get_sensor_pos(car, car.velocity.angle, Angle(self.angle))
 
         # update the value of the sensor
-        self.update_value(sensor_array=sensor_array, simulation=simulation)
+        self.update_value(sensor_array=sensor_array, simulation=simulation, car=car)
         # np.array[x2, y2]
         self.coords = sensor_array[self.sensor_depth - 1]
         # return the line coordinates
         # x2, y2
         return self.coords[0], self.coords[1]
 
-    def update_value(self, sensor_array, simulation):
+    def update_value(self, sensor_array, simulation, car):
         """
         Check for collisions between the simulation track_border and the sensor surface
         and update the value of the sensor as either the default_val (no bit) or
         the distance between the bit and the vehicle
         Note: Error will be thrown if the track_border is None
+        :param car:
+        :param sensor_array:
         :param simulation: Simulation
         :return: None
         """
-        car_v: Velocity = simulation.car.velocity
+        car_v: Velocity = car.velocity
         border_mask = simulation.border_mask
         angle = car_v.angle + Angle(self.angle)
         # print("car angle: ", car_v.angle)
@@ -385,12 +396,12 @@ class Sensor:
             bit = border_mask.get_at((point[0], point[1]))
             if bit == 1:
                 if self.pointer:
-                    x, y = point[0] - 5 / 2, point[1] - 5 / 2
+                    x, y = point[0], point[1]
                     draw.circle(simulation.window, (255, 255, 255), (x, y), 5)
                 self.value = car_v.distance_between(
                     other=Vector2D(x=point[0], y=point[1]),
-                    offset=(simulation.car.image.get_width() / 2,
-                            simulation.car.image.get_height() / 2)
+                    offset=(car.image.get_width() / 2,
+                            car.image.get_height() / 2)
                 )
                 self.collision_point = point
                 break

@@ -7,7 +7,7 @@ from simulation import Simulation
 from vehicle import Vehicle, SensorBuilder
 from qlearn import QLearningAgent
 from pygame import (K_UP, K_DOWN, K_LEFT, K_RIGHT, transform)
-from gui.components import TimedLabel, TimedLabelQueue
+from gui.components import TimedLabel, Label
 import os
 
 
@@ -38,6 +38,11 @@ class DefaultSimulation(Simulation, ABC):
         """
         self.start_pos = (875, 100)
 
+    def update_and_display_arrow_display(self):
+        self.arrow_display.render(
+            self.window, (520, 500), current_actions=self.car.current_action
+        )
+
     def init_track(self) -> (str, str, str):
         """
         Should set the images of the track (paths to the images):
@@ -55,18 +60,39 @@ class DefaultSimulation(Simulation, ABC):
 
 class Car(Vehicle, ABC):
 
-    def __init__(self, driver, sensor_depth, debug=False, acceleration_multiplier=.5, normalize=True):
+    def __init__(self, driver, debug=False, acceleration_multiplier=.5, normalize=True):
         super(Car, self).__init__(
             num_outputs=5,
             image_path=os.path.join("assets", "grey-car.png"),
             driver=driver,
             scale=1,
             debug=debug,
-            sensor_depth=sensor_depth,
+            max_speed=20,
             normalize=normalize
         )
+        self.odometer_label = None
+        self.speed_label = None
         self.acceleration_multiplier = acceleration_multiplier
         self.model_path = os.path.join("assets", "models")
+
+    @staticmethod
+    def get_num_outputs():
+        """
+        0 = left
+        1 = accelerate
+        2 = right
+        3 = break
+        4 = coast
+        :return: number of inputs
+        """
+        return 5
+
+    def get_vehicle_image_position(self):
+        """
+        :return: The absolute position of the image of the vehicle (in relation to the window)
+        """
+        return np.array((self.velocity.x + (self.image.get_width() / 2) + 12,
+                  self.velocity.y + (self.image.get_height() / 2) + 12))
 
     def configure_image(self):
         self.image = transform.rotate(self.image, -90)
@@ -100,7 +126,7 @@ class Car(Vehicle, ABC):
         Accelerate the car
         :return: None
         """
-        if self.velocity.speed < self.max_speed:
+        if self.ignore_max_speed or self.velocity.speed < self.max_speed:
             self.velocity.speed += self.acceleration_multiplier
 
     def turn(self, left=False, right=False):
@@ -132,6 +158,7 @@ class Car(Vehicle, ABC):
         i = self._get_vehicle_input()
         direction = self.driver.update(inputs=i, wall_collision=collision, reward_collision=reward,
                                        keys_pressed=keys_pressed)
+        self.current_action = direction
         accel = False
         if direction.count(0) > 0:
             self.turn(left=True)
@@ -216,19 +243,17 @@ class GameControlDriver(Agent, ABC):
 
 
 def main():
-    NUM_SENSORS = 10
 
     car = Car(
         driver=None,
-        sensor_depth=200,
         debug=False,
         acceleration_multiplier=.5,
         normalize=True
     )
 
     simulation = DefaultSimulation(
-        debug=True,
-        fps=None,  # None means simulation fps is not tracked (Suggested for training)
+        debug=False,
+        fps=35,  # None means simulation fps is not tracked (Suggested for training)
         num_episodes=None,
         caption="Default Simulation",
         car=car,
@@ -264,7 +289,7 @@ def main():
             replay_mem_max=400,
             save_after=100,
             load_latest_model=True,
-            training_model=True,
+            training_model=False,
             model_path=None,
             train_each_step=False,
             debug=False,
