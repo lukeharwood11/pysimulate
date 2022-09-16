@@ -23,7 +23,7 @@ class Simulation(ABC):
 
         Rewards should be initialized within the agent itself and not the simulator
 
-        :param debug: whether or not sensors/rewards/etc. will be shown
+        :param debug: whether or not sensors/etc. will be shown
         :param fps: None if simulation is not run based on fps (speed of while-loop) otherwise fps of simulator
         :param num_episodes: the number of episodes (crashes) before the simulation dies
                             - None if the simulator runs forever
@@ -242,7 +242,6 @@ class Simulation(ABC):
         self.odometer_label.render(self.window)
         self.fps_label.render(self.window)
         self.label_manager.render()
-
 
     # TODO implement
     def op_display(self):

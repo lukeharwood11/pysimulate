@@ -60,7 +60,7 @@ class DefaultSimulation(Simulation, ABC):
 
 class Car(Vehicle, ABC):
 
-    def __init__(self, driver, sensor_depth, debug=False, acceleration_multiplier=.5, normalize=True):
+    def __init__(self, driver, debug=False, acceleration_multiplier=.5, normalize=True):
         super(Car, self).__init__(
             num_outputs=5,
             image_path=os.path.join("assets", "grey-car.png"),
@@ -75,6 +75,25 @@ class Car(Vehicle, ABC):
         self.speed_label = None
         self.acceleration_multiplier = acceleration_multiplier
         self.model_path = os.path.join("assets", "models")
+
+    @staticmethod
+    def get_num_outputs():
+        """
+        0 = left
+        1 = accelerate
+        2 = right
+        3 = break
+        4 = coast
+        :return: number of inputs
+        """
+        return 5
+
+    def get_vehicle_image_position(self):
+        """
+        :return: The absolute position of the image of the vehicle (in relation to the window)
+        """
+        return np.array((self.velocity.x + (self.image.get_width() / 2) + 12,
+                  self.velocity.y + (self.image.get_height() / 2) + 12))
 
     def configure_image(self):
         self.image = transform.rotate(self.image, -90)
@@ -228,7 +247,6 @@ def main():
 
     car = Car(
         driver=None,
-        sensor_depth=200,
         debug=False,
         acceleration_multiplier=.5,
         normalize=True
