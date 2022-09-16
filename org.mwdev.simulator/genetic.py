@@ -7,7 +7,7 @@ from pygame import K_DOWN
 
 from gui.components import TimedLabelQueue, TimedLabel, Label
 from agent import Agent
-from example import Car
+from example import Car, ReplayDriver
 import os
 from vehicle import SensorBuilder, Sensor
 from utils import CollisionSet
@@ -84,6 +84,7 @@ class GeneticCar(Car):
         :param simulation: the simulation the vehicle exists in
         :return: None
         """
+
         window = simulation.window
         # account for reoccurring events (such as velocity update)
         if not self.collision:
@@ -95,8 +96,10 @@ class GeneticCar(Car):
             pygame.draw.line(window, (255, 0, 0), (self.velocity.x + 15, self.velocity.y),
                              (self.velocity.x + self.current_image.get_width() + 15,
                               self.velocity.y + self.current_image.get_width()), width=10)
-            pygame.draw.line(window, (255, 0, 0), (self.velocity.x + 15, self.velocity.y + self.current_image.get_width()),
+            pygame.draw.line(window, (255, 0, 0),
+                             (self.velocity.x + 15, self.velocity.y + self.current_image.get_width()),
                              (self.velocity.x + self.current_image.get_width() + 15, self.velocity.y), width=10)
+        return
 
 
 class GeneticCarSet:
@@ -211,19 +214,27 @@ class GeneticCarSet:
                 car.update_sensors(window, simulation)
 
     def step_mini_batch(self, keys_pressed):
-        force_reset = False
-        if keys_pressed[K_DOWN]:
-            force_reset = True
         for i, car in enumerate(self.mini_batch):
-            if force_reset:
-                car.collision = True
-                self.collision_set.set_collision(i)
             if not self.collision_set.collision_at(i):
                 car.step(
                     reward=False,
                     collision=False,
                     keys_pressed=keys_pressed
                 )
+
+    def step_mini_batch_headless(self, keys_pressed):
+        batch_choice = []
+        for i, car in enumerate(self.mini_batch):
+            if not self.collision_set.collision_at(i):
+                batch_choice.append(car.step(
+                    reward=False,
+                    collision=False,
+                    keys_pressed=keys_pressed
+                ))
+            else:
+                # break
+                batch_choice.append(3)
+        return np.array(batch_choice)
 
     def update_mini_batch(self, simulation):
         for i, car in enumerate(self.mini_batch):
@@ -493,6 +504,107 @@ class GeneticAlgorithmSimulation:
             os.path.join("assets", "track.png")
 
 
+class GeneticAlgorithmSimulationHeadless(GeneticAlgorithmSimulation):
+
+    def __init__(self,
+                 debug=True,
+                 fps=None,
+                 num_episodes=None,
+                 cars: GeneticCarSet = None,
+                 track_offset=(0, 0),
+                 screen_size=(1400, 800),
+                 track_size=(1400, 800),
+                 batch_size=100,
+                 caption="Genetic Algorithm"
+                 ):
+        super().__init__(debug=debug, fps=fps, num_episodes=num_episodes, cars=cars, track_offset=track_offset,
+                         screen_size=screen_size,
+                         track_size=track_size, batch_size=batch_size, mini_batch_size=batch_size, caption=caption)
+        self._show_after = 5  # number of batches before we show
+        self.replay_buffer = []
+
+    def simulate(self):
+        """
+        main 'game-loop' for simulation
+        :return: None
+        """
+        # - - - - - - - - - - - - - - - - - - - - - - - - - -
+        print("Begin simulation init...")
+        run = True
+        pygame.display.set_caption(self._caption)
+        self.cars.initialize()
+        print("Done!")
+        # - - - - - - - - - - - - - - - - - - - - - - - - - -
+        while run:
+            if self._fps is not None and run:
+                self._clock.tick(self._fps)
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    run = False
+                    if self.best_driver is not None:
+                        path = os.path.join("assets", "models")
+                        if not os.path.exists(path):
+                            os.mkdir(path)
+                        self.best_driver.save_model(os.path.join("assets", "models"))
+                    break
+            t = self.current_timestamp
+            self.current_timestamp = time()
+            if t is not None:
+                self.calculate_fps(self.current_timestamp - t)
+            keys_pressed = pygame.key.get_pressed()
+            self.calculate_movements(keys_pressed)
+
+    def calculate_movements(self, keys_pressed):
+        """
+        :param keys_pressed:
+        :return:
+        """
+        self.cars.update_sensors(self.window, self)
+        # update the collision set to determine if all cars in the minibatch have 'crashed'
+        self.handle_collision()
+        # if a car "stalls" call it a collision
+        self.cars.weed_the_weak()
+        # Only call reset when all cars have 'died'
+        self.cars.handle_reset(self)
+        self.replay_buffer.append(self.cars.step_mini_batch_headless(keys_pressed=keys_pressed))
+        self.cars.update_mini_batch(simulation=self)
+
+    def replay(self):
+        print("Replaying Events...")
+        replay = np.array(self.replay_buffer)
+        cars = self.init_replay_cars(replay)
+        self.replay_buffer = []
+        for i in range(replay.shape[0]):
+            self.window.fill((0, 0, 0))
+            if self._track_bg is not None:
+                self.window.blit(self._track_bg, self._track_offset)
+            for car in cars:
+                car.step(None, None, None, ignore_input=True)
+                car.update(self)
+            self.op_display()
+
+    def init_replay_cars(self, replay):
+        cars = []
+        for i in range(self.batch_size):
+            cars.append(Car(
+                driver=ReplayDriver(replay[:, i]),
+                debug=False
+            ))
+        return np.array(cars, dtype=Car)
+
+    def clean_up_iteration(self):
+        """
+        - Clean up the current iteration for the next one
+        - Find the highest ranking cars, then crossover, then mutate
+        :return:
+        """
+        print("Iteration {} Ended.".format(self.iteration_num))
+        if self.iteration_num % self._show_after == 0:
+            self.replay()
+        self.iteration_num += 1
+        print("Beginning Iteration {}".format(self.iteration_num))
+
+
 class GeneticAlgorithmDriver(Agent, ABC):
 
     def __init__(self, num_inputs, num_outputs, driver_id, epsilon):
@@ -590,7 +702,7 @@ class GeneticAlgorithmDriver(Agent, ABC):
         if load_latest:
             parent = GeneticAlgorithmDriver(num_inputs, num_outputs, driver_id=0, epsilon=epsilon)
             parent.load_model(os.path.join("assets", "models"))
-            mutations = parent.mutate(num_drivers-1)
+            mutations = parent.mutate(num_drivers - 1)
             return np.array([parent] + mutations)
         return np.array([GeneticAlgorithmDriver(num_inputs, num_outputs, driver_id=identifier, epsilon=epsilon)
                          for identifier in range(num_drivers)])
@@ -622,23 +734,35 @@ class GeneticAlgorithmDriver(Agent, ABC):
 
 def main():
     # the number of cars within a particular batch
-    BATCH_SIZE = 100
+    BATCH_SIZE = 2
     # the number of cars to render on the screen at once
     MINI_BATCH_SIZE = 20
     # step 1: generate cars, and create a new car set
     genetic_cars = GeneticCar.generate_cars(BATCH_SIZE, params=None)
-    car_set = GeneticCarSet(genetic_cars, MINI_BATCH_SIZE)
+    car_set = GeneticCarSet(genetic_cars, BATCH_SIZE)
     # step 2: generate genetic simulation
-    simulation = GeneticAlgorithmSimulation(
-        debug=True,
-        fps=None,
-        num_episodes=None,
-        cars=car_set,
-        track_offset=(0, 0),
-        batch_size=BATCH_SIZE,
-        mini_batch_size=3,
-        caption="Genetic Algorithm Simulation"
-    )
+    sim_map = {
+        "headless": GeneticAlgorithmSimulationHeadless(
+            debug=True,
+            fps=None,
+            num_episodes=None,
+            cars=car_set,
+            track_offset=(0, 0),
+            batch_size=BATCH_SIZE,
+            caption="Genetic Algorithm Simulation"
+        ),
+        "normal": GeneticAlgorithmSimulation(
+            debug=True,
+            fps=None,
+            num_episodes=None,
+            cars=car_set,
+            track_offset=(0, 0),
+            mini_batch_size=5,
+            batch_size=BATCH_SIZE,
+            caption="Genetic Algorithm Simulation"
+        )
+    }
+    simulation = sim_map["headless"]
     # step 3: generate sensors and attach to the cars
     sb = SensorBuilder(
         depth=500,
@@ -655,7 +779,8 @@ def main():
     num_inputs = car_set.get_external_inputs() + sb.num_sensors
     num_outputs = Car.get_num_outputs()
     # step 4: initialize the drivers given the input/output numbers and put them in the cars
-    initial_drivers = GeneticAlgorithmDriver.generate_drivers(BATCH_SIZE, num_inputs, num_outputs, epsilon=.50, load_latest=True)
+    initial_drivers = GeneticAlgorithmDriver.generate_drivers(BATCH_SIZE, num_inputs, num_outputs, epsilon=.50,
+                                                              load_latest=True)
     car_set.initialize_drivers(drivers=initial_drivers, simulation=simulation)
     # step 5: simulate!
     simulation.simulate()

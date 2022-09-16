@@ -92,7 +92,7 @@ class Car(Vehicle, ABC):
         :return: The absolute position of the image of the vehicle (in relation to the window)
         """
         return np.array((self.velocity.x + (self.image.get_width() / 2) + 12,
-                  self.velocity.y + (self.image.get_height() / 2) + 12))
+                         self.velocity.y + (self.image.get_height() / 2) + 12))
 
     def configure_image(self):
         self.image = transform.rotate(self.image, -90)
@@ -145,7 +145,7 @@ class Car(Vehicle, ABC):
         else:
             self.velocity.speed = 0
 
-    def step(self, reward: bool, collision: bool, keys_pressed):
+    def step(self, reward: bool, collision: bool, keys_pressed, ignore_input=False):
         """
         - Given the reward, collision info and the current input from the sensors, move the car
         - In this implementation of step() the inputs consist of the sensor depths with the last two values of inputs
@@ -155,22 +155,30 @@ class Car(Vehicle, ABC):
         :param collision: whether the car is over a collision
         :return: None
         """
-        i = self._get_vehicle_input()
+        i = None
+        if not ignore_input:
+            i = self._get_vehicle_input()
         direction = self.driver.update(inputs=i, wall_collision=collision, reward_collision=reward,
                                        keys_pressed=keys_pressed)
         self.current_action = direction
         accel = False
+        ret = 4
         if direction.count(0) > 0:
             self.turn(left=True)
+            ret = 0
         if direction.count(1) > 0:
             self.accelerate()
             accel = True
+            ret = 1
         if direction.count(2) > 0:
             self.turn(right=True)
+            ret = 2
         if direction.count(3) > 0:
             self.brake()
+            ret = 3
         if not accel:
             self.deccelerate()
+        return ret
 
     def deccelerate(self):
         self.velocity.speed = .98 * self.velocity.speed
@@ -187,7 +195,36 @@ class Car(Vehicle, ABC):
         """
         np_array = np.array([sensor.value for sensor in self.sensors] + [self.velocity.speed])
         norm = np.linalg.norm(np_array)
-        return np_array/norm if self._normalize else np_array
+        return np_array / norm if self._normalize else np_array
+
+
+class ReplayDriver(Agent, ABC):
+
+    def __init__(self, replay):
+        super().__init__(0, 0)
+        self.replay = replay
+        self.replay_index = 0
+
+    def update(self, inputs, reward_collision=False, wall_collision=False, keys_pressed=None) -> list[int]:
+        action = [self.replay[self.replay_index]]
+        self.replay_index += 1
+        return action
+
+    def save_model(self, path):
+        """
+        do nothing
+        :param path: n/a
+        :return: n/a
+        """
+        pass
+
+    def load_model(self, path):
+        """
+        do nothing
+        :param path: n/a
+        :return: n/a
+        """
+        pass
 
 
 class GameControlDriver(Agent, ABC):
@@ -243,7 +280,6 @@ class GameControlDriver(Agent, ABC):
 
 
 def main():
-
     car = Car(
         driver=None,
         debug=False,
