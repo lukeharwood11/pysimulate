@@ -263,7 +263,7 @@ class SensorBuilder:
         return (car_v.x - self.depth + self.simulation.car.image.get_width() / 2,
                 car_v.y - self.depth + self.simulation.car.image.get_height() / 2)
 
-    def generate_sensors(self, sensor_angles: list[int] = None, sensor_range=None) -> list:
+    def generate_sensors(self, sensor_angles: list[int] = None, sensor_range=None, num_sets=1) -> list:
         """
         - Generate a cached list of sensors
         :param sensor_range: an optional parameter allowing for sensor values to be defined by a range
@@ -271,17 +271,23 @@ class SensorBuilder:
         :param range - (start_angle, end_angle, step)
         """
         sensors = []
+        bin = []
         if range is not None and sensor_angles is None:
             sensor_angles = range(*sensor_range)
-        for angle in sensor_angles:
-            self.num_sensors = len(sensor_angles)
-            sensors.append(
-                Sensor(
-                    sb=self, sensor_depth=self.depth, angle=angle, default_val=self.default_value,
-                    offset=np.array(self.offset), line_width=self.width, line_color=self.color if self.color != "random" else self.generate_random_color(), pointer=self.pointer
+
+        for i in range(num_sets):
+            for angle in sensor_angles:
+                self.num_sensors = len(sensor_angles)
+                sensors.append(
+                    Sensor(
+                        sb=self, sensor_depth=self.depth, angle=angle, default_val=self.default_value,
+                        offset=np.array(self.offset), line_width=self.width, line_color=self.color if self.color != "random" else self.generate_random_color(), pointer=self.pointer
+                    )
                 )
-            )
-        return sensors
+            bin.append(sensors)
+            sensors = []
+        # Return the list of sensors, or if it's a batch of sensors, return the whole batch
+        return bin[0] if num_sets == 1 else bin
 
     def generate_random_color(self):
         r = np.random.rand() * 255

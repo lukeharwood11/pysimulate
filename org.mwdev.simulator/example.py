@@ -67,6 +67,18 @@ class Car(Vehicle, ABC):
         self.acceleration_multiplier = acceleration_multiplier
         self.model_path = os.path.join("assets", "models")
 
+    @staticmethod
+    def get_num_outputs():
+        """
+        0 = left
+        1 = accelerate
+        2 = right
+        3 = break
+        4 = coast
+        :return: number of inputs
+        """
+        return 5
+
     def configure_image(self):
         self.image = transform.rotate(self.image, -90)
         self.image = transform.smoothscale(self.image, (34, 17))
@@ -260,7 +272,7 @@ def main():
             batch_size=64,
             replay_mem_max=400,
             save_after=100,
-            load_latest_model=True,
+            load_latest_model=False,
             training_model=True,
             model_path=None,
             train_each_step=False,

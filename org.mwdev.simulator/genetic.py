@@ -13,13 +13,14 @@ from utils import CollisionSet
 
 class GeneticCar(Car):
 
-    def __init__(self, driver, debug=False, acceleration_multiplier=.5, normalize=True):
+    def __init__(self, driver, car_number, debug=False, acceleration_multiplier=.5, normalize=True):
         super(GeneticCar, self).__init__(driver, debug, acceleration_multiplier, normalize)
         self.number = 0
+        self.car_number = car_number
         self.parents = []
 
     @staticmethod
-    def generate_cars(drivers, params=None):
+    def generate_cars(batch_size, params=None):
         if params is None:
             params = {
                 'acceleration_multiplier': .5,
@@ -27,8 +28,8 @@ class GeneticCar(Car):
                 'debug': False
             }
         return np.array([GeneticCar(
-            driver=driver, **params
-        ) for driver in drivers])
+            driver=None, car_number=num, **params
+        ) for num in batch_size])
 
     def reset(self, simulation):
         """
@@ -82,6 +83,7 @@ class GeneticCarSet:
         :param mini_batch_size: the number of cars in the mini-batch
         """
         self.cars = cars
+        self.sensor_builder = None
         self.batch_size = len(cars)
         self.car_offset = self.cars[0].image.get_width() / 2, self.cars[0].image.get_height() / 2
         self.mini_batch_size = mini_batch_size
@@ -95,6 +97,13 @@ class GeneticCarSet:
         # other
         # simulation must be set prior to running simulation.simulate()
         self.simulation = None
+
+    def get_external_inputs(self):
+        return self.cars[0].get_external_inputs()
+
+    def initialize_sensors(self, sensor_batch):
+        for car, sensors in zip(self.cars, sensor_batch):
+            car.sensors = sensors
 
     def initialize_drivers(self, drivers):
         for car, driver in zip(self.cars, drivers):
@@ -456,8 +465,21 @@ class GeneticNeuralNetwork:
 
 class GeneticAlgorithmDriver(Agent, ABC):
 
-    def __init__(self, num_inputs, num_outputs):
+    def __init__(self, num_inputs, num_outputs, driver_id, epsilon):
         super().__init__(num_inputs, num_outputs)
+        # weight initialization range of [-1.5, 1.5)
+        self.w1 = 3 * np.random.random((num_inputs, 32)) - 1.5
+        self.w2 = 3 * np.random.random((32, 16)) - 1.5
+        self.w3 = 3 * np.random.random((16, num_outputs)) - 1.5
+        self.driver_id = str(driver_id)
+        self.epsilon = epsilon
+
+    def forward(self, input_arr: np.array):
+        # input shape is (1, num_input)
+        pass1 = np.matmul(input_arr, self.w1)  # pass1 has shape of (1, 32)
+        pass2 = np.matmul(pass1, self.w2)      # pass2 has shape of (1, 16)
+        pass3 = np.matmul(pass2, self.w3)      # pass3 has shape of (1, num_outputs)
+        return np.tanh(pass3)                  # shape is still (1, num_outputs)
 
     def update(self, inputs, reward_collision=False, wall_collision=False, keys_pressed=None) -> list[int]:
         """
@@ -468,28 +490,74 @@ class GeneticAlgorithmDriver(Agent, ABC):
         :param keys_pressed: a map of pressed keys
         :return direction: int [0 - num_outputs)
         """
-        pass
+        return [np.argmax(self.forward(inputs))]
 
-    def mutate(self, other, num_mutations):
+    def cross_over_mutation(self, other, total_batch_size):
         """
-        :param other: another driver
-        :param num_mutations: the number of mutations to add to itself
+        1. cross over self and other
+        2. generate {total_batch_size - 2 (self and other)} number of mutations
+        3. return the list of drivers as a numpy array, with the first two being the parents
+        :param other:
         :return:
         """
-        return np.array([self, other] + [self.cross_over_mutation(other) for _ in num_mutations],
-                        dtype=GeneticAlgorithmDriver)
+        child_driver = self.cross_over(other)
+        mutations = child_driver.mutate(total_batch_size - 2)
+        return np.array([self, other] + mutations)
 
-    def cross_over_mutation(self, other):
-        pass
+    def cross_over(self, other):
+        """
+        Single point crossover
+        :param other:
+        :return:
+        """
+        child_driver = GeneticAlgorithmDriver(self.num_inputs, self.num_outputs, "({} & {})".format(self.driver_id, other.driver_id), self.epsilon)
+        cross_over_point = np.random.randint(self.w1.shape[1])
+        child_driver.w1 = np.hstack((self.w1[:, :cross_over_point], other.w2[:, cross_over_point:]))
+        cross_over_point = np.random.randint(self.w2.shape[1])
+        child_driver.w2 = np.hstack((self.w1[:, :cross_over_point], other.w2[:, cross_over_point:]))
+        cross_over_point = np.random.randint(self.w3.shape[1])
+        child_driver.w3 = np.hstack((self.w1[:, :cross_over_point], other.w2[:, cross_over_point:]))
+        return child_driver
+
+    def mutate(self, num_mutations):
+        """
+        :param num_mutations: the number of mutations to create
+        :return: a list of GeneticAlgorithmDriver mutations
+        """
+        mutations = []
+        for i in range(num_mutations):
+            mutation = GeneticAlgorithmDriver(self.num_inputs, self.num_outputs, driver_id="{}_{}".format(self.driver_id, i), epsilon=self.epsilon)
+            mutation_arr = self.generate_mutation_arr()  # generate mutations and masks
+            # read following as add mutations to self.w1 at the positions where the mask is less than epsilon
+            mutation.w1 = self.w1 + mutation_arr[0][0] * (mutation_arr[0][1] < self.epsilon)
+            mutation.w2 = self.w2 + mutation_arr[1][0] * (mutation_arr[1][1] < self.epsilon)
+            mutation.w3 = self.w3 + mutation_arr[2][0] * (mutation_arr[2][1] < self.epsilon)
+            mutations.append(mutation)
+        return mutations
+
+    def generate_mutation_arr(self):
+        """
+        :return: list([(mutation array, mask array), ...])
+        """
+        ret = []
+        shapes = [self.w1.shape, self.w2.shape, self.w3.shape]
+        for i in shapes:
+            # range = number of layers
+            ret.append((2 * np.random.random(i) - 1, np.random.random(i)))
+        return ret
+
 
     @staticmethod
-    def generate_drivers(num_drivers):
+    def generate_drivers(num_drivers, num_inputs, num_outputs):
         """
         create a list of random Drivers
+        :param num_inputs:
+        :param num_outputs:
         :param num_drivers:
         :return:
         """
-        pass
+        return np.array([GeneticAlgorithmDriver(num_inputs, num_outputs, driver_id=identifier, epsilon=.25)
+                         for identifier in range(num_drivers)])
 
     def save_model(self, path):
         """
@@ -513,12 +581,10 @@ def main():
     BATCH_SIZE = 100
     # the number of cars to render on the screen at once
     MINI_BATCH_SIZE = 3
-    # step 1: generate drivers
-    initial_drivers = GeneticAlgorithmDriver.generate_drivers(BATCH_SIZE)
-    # step 2: generate cars and create a new car set
-    genetic_cars = GeneticCar.generate_cars(initial_drivers, params=None)
+    # step 1: generate cars, and create a new car set
+    genetic_cars = GeneticCar.generate_cars(BATCH_SIZE, params=None)
     car_set = GeneticCarSet(genetic_cars, MINI_BATCH_SIZE)
-    # step 3: generate genetic simulation
+    # step 2: generate genetic simulation
     simulation = GeneticAlgorithmSimulation(
         debug=True,
         fps=40,
@@ -529,7 +595,7 @@ def main():
         mini_batch_size=3,
         caption="Genetic Algorithm Simulation"
     )
-    # step 4: generate sensors and attach to the cars
+    # step 3: generate sensors and attach to the cars
     sb = SensorBuilder(
         depth=500,
         sim=simulation,  # ignore warning, simulations are compatible
@@ -538,8 +604,17 @@ def main():
         width=2,
         pointer=True
     )
-    sensors = sb.generate_sensors(sensor_range=(-90, 90, 10))
-
+    sensor_batch = sb.generate_sensors(sensor_range=(-90, 90, 10), num_sets=BATCH_SIZE)
+    # Attach the sensors to the cars
+    car_set.initialize_sensors(sensor_batch=sensor_batch)
+    # calculate inputs and output size
+    num_inputs = car_set.get_external_inputs() + sb.num_sensors
+    num_outputs = Car.get_num_outputs()
+    # step 4: initialize the drivers given the input/output numbers and put them in the cars
+    initial_drivers = GeneticAlgorithmDriver.generate_drivers(BATCH_SIZE, num_inputs, num_outputs)
+    car_set.initialize_drivers(initial_drivers)
+    # step 5: simulate!
+    simulation.simulate()
 
 
 
