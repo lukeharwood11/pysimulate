@@ -442,27 +442,6 @@ class GeneticAlgorithmSimulation:
             os.path.join("assets", "track.png"), None
 
 
-class GeneticNeuralNetwork:
-
-    def __init__(self):
-        pass
-
-    def cross_over(self, other):
-        """
-
-        :param other:
-        :return:
-        """
-        pass
-
-    def mutate(self):
-        """
-
-        :return:
-        """
-        pass
-
-
 class GeneticAlgorithmDriver(Agent, ABC):
 
     def __init__(self, num_inputs, num_outputs, driver_id, epsilon):
@@ -548,7 +527,7 @@ class GeneticAlgorithmDriver(Agent, ABC):
 
 
     @staticmethod
-    def generate_drivers(num_drivers, num_inputs, num_outputs):
+    def generate_drivers(num_drivers, num_inputs, num_outputs, epsilon):
         """
         create a list of random Drivers
         :param num_inputs:
@@ -556,7 +535,7 @@ class GeneticAlgorithmDriver(Agent, ABC):
         :param num_drivers:
         :return:
         """
-        return np.array([GeneticAlgorithmDriver(num_inputs, num_outputs, driver_id=identifier, epsilon=.25)
+        return np.array([GeneticAlgorithmDriver(num_inputs, num_outputs, driver_id=identifier, epsilon=epsilon)
                          for identifier in range(num_drivers)])
 
     def save_model(self, path):
@@ -611,12 +590,10 @@ def main():
     num_inputs = car_set.get_external_inputs() + sb.num_sensors
     num_outputs = Car.get_num_outputs()
     # step 4: initialize the drivers given the input/output numbers and put them in the cars
-    initial_drivers = GeneticAlgorithmDriver.generate_drivers(BATCH_SIZE, num_inputs, num_outputs)
+    initial_drivers = GeneticAlgorithmDriver.generate_drivers(BATCH_SIZE, num_inputs, num_outputs, epsilon=.25)
     car_set.initialize_drivers(initial_drivers)
     # step 5: simulate!
     simulation.simulate()
-
-
 
 
 if __name__ == "__main__":
