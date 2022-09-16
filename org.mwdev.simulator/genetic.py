@@ -18,6 +18,7 @@ class GeneticCar(Car):
         self.number = 0
         self.car_number = car_number
         self.parents = []
+        self.collision = False
 
     @staticmethod
     def generate_cars(batch_size, params=None):
@@ -29,7 +30,7 @@ class GeneticCar(Car):
             }
         return np.array([GeneticCar(
             driver=None, car_number=num, **params
-        ) for num in batch_size])
+        ) for num in range(batch_size)])
 
     def reset(self, simulation):
         """
@@ -43,6 +44,7 @@ class GeneticCar(Car):
             angle=180,
             speed=0
         )
+        self.collision = False
         self.odometer = 0
 
     def __add__(self, other):
@@ -70,9 +72,27 @@ class GeneticCar(Car):
         :return: None
         """
         # get (x1,y1,x2,y2) tuples for all sensor positions
-        s = [sensor.update(window=window, simulation=simulation) for sensor in self.sensors]
+        s = [sensor.update(car=self, window=window, simulation=simulation) for sensor in self.sensors]
         if self._debug:
             self.display_sensor(car_pos=GeneticAlgorithmSimulation.get_vehicle_image_position(self), window=window)
+
+    def update(self, simulation):
+        """
+        update necessary data and send back to simulation
+        :param simulation: the simulation the vehicle exists in
+        :return: None
+        """
+        window = simulation.window
+        # account for reoccurring events (such as velocity update)
+        if not self.collision:
+            self.update_pos()
+            self.odometer += self.velocity.speed  # update odometer as the distance moved each step
+        self.blit_rotate_center(window, (self.velocity.x, self.velocity.y))
+        if self.collision:
+            pygame.draw.line(window, (255, 0, 0), (self.velocity.x, self.velocity.y),
+                             (self.velocity.x + self.current_image.get_width(), self.velocity.y + self.current_image.get_width()), width=10)
+            pygame.draw.line(window, (255, 0, 0), (self.velocity.x, self.velocity.y + self.current_image.get_width()),
+                             (self.velocity.x + self.current_image.get_width(), self.velocity.y), width=10)
 
 class GeneticCarSet:
 
@@ -98,6 +118,12 @@ class GeneticCarSet:
         # simulation must be set prior to running simulation.simulate()
         self.simulation = None
 
+    def initialize(self):
+        if self.cars is not None:
+            print("Initializing car image conversion...")
+            for car in self.cars:
+                car.image = car.image.convert()
+
     def get_external_inputs(self):
         return self.cars[0].get_external_inputs()
 
@@ -105,23 +131,24 @@ class GeneticCarSet:
         for car, sensors in zip(self.cars, sensor_batch):
             car.sensors = sensors
 
-    def initialize_drivers(self, drivers):
+    def initialize_drivers(self, drivers, simulation):
         for car, driver in zip(self.cars, drivers):
             car.driver = driver
+            car.reset(simulation=simulation)
 
     def reset_all(self):
         for car in self.cars:
             car.reset(self.simulation)
 
-    def handle_reset(self):
+    def handle_reset(self, simulation):
         """
         reset the mini_batch if all cars are collided
         :return: None
         """
-        if self.collision_set.full_collision():
-            self.reset_mini_batch()
+        if self.collision_set.full_collision().all():
+            self.reset_mini_batch(simulation)
 
-    def reset_mini_batch(self):
+    def reset_mini_batch(self, simulation):
         """
         reset the collision_set and queue the next set of cars
         :return:
@@ -132,7 +159,7 @@ class GeneticCarSet:
 
         # If the batch is done
         if self.mini_batch_index >= len(self.cars):
-            self.clean_up_iteration()
+            self.clean_up_iteration(simulation)
         else:
             next_index = self.mini_batch_index + self.mini_batch_size
             # grab the next mini_batch of cars
@@ -140,8 +167,19 @@ class GeneticCarSet:
                               self.mini_batch_index: next_index if next_index < len(self.cars) else len(self.cars) - 1]
             self.mini_batch_index += self.mini_batch_size
 
-    def clean_up_iteration(self):
-        pass
+    def clean_up_iteration(self, simulation):
+        """
+        called when the entire batch is complete
+        :return:
+        """
+        simulation.clean_up_iteration()
+        s = np.argsort(self.batch_results)
+        parent_cars = self.cars[s[-2:]]
+        driver1, driver2 = parent_cars[0].driver, parent_cars[1].driver
+        # Note: new_drivers includes driver1 and driver2
+        new_drivers = driver1.cross_over_mutation(driver2, num_mutations=self.batch_size)
+        self.initialize_drivers(new_drivers, simulation)
+        return parent_cars[2].odometer
 
     def update_sensors(self, window, simulation):
         for i, car in enumerate(self.mini_batch):
@@ -158,7 +196,8 @@ class GeneticCarSet:
                 )
 
     def update_mini_batch(self, simulation):
-        pass
+        for i, car in enumerate(self.mini_batch):
+            car.update(simulation)
 
 
 class GeneticAlgorithmSimulation:
@@ -202,11 +241,9 @@ class GeneticAlgorithmSimulation:
         self.track_border_height = None
         self.border_mask = None
         self._track_bg = None
-        self._track_rewards = None
-        self.rewards_mask = None
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         self._clock = pygame.time.Clock()
-        self._iteration_num = 1
+        self.iteration_num = 1
         self._debug = debug
         self._max_episodes = num_episodes
         self._caption = caption
@@ -247,21 +284,17 @@ class GeneticAlgorithmSimulation:
         called in constructor for converting images
         :return:
         """
-        border, track, rewards = self.init_track()
+        border, track = self.init_track()
         self._track_border = pygame.image.load(border)
         self._track_border = pygame.transform.smoothscale(self._track_border, self._track_dim).convert_alpha()
         self._track_bg = pygame.image.load(track).convert()
         self._track_bg = pygame.transform.smoothscale(self._track_bg, self._track_dim).convert()
-        self._track_rewards = pygame.image.load(rewards)
-        self._track_rewards = pygame.transform.smoothscale(self._track_rewards, self._track_dim).convert_alpha()
 
         if self._track_border is not None:
             self.track_border_width = self._track_border.get_width()
             self.track_border_height = self._track_border.get_height()
         if border is not None:
             self.border_mask = pygame.mask.from_surface(self._track_border)
-        if rewards is not None:
-            self.rewards_mask = pygame.mask.from_surface(self._track_rewards)
 
     def get_vehicle_offset(self):
         return None if self.cars is None else self.cars.car_offset
@@ -299,11 +332,7 @@ class GeneticAlgorithmSimulation:
         print("Begin simulation init...")
         run = True
         pygame.display.set_caption(self._caption)
-        if self.cars is not None:
-            print("Initializing car image conversion...")
-            for car in self.cars:
-                car.image = car.image.convert()
-                car.reset(self)
+        self.cars.initialize()
         print("Done!")
         # - - - - - - - - - - - - - - - - - - - - - - - - - -
         while run:
@@ -336,14 +365,11 @@ class GeneticAlgorithmSimulation:
         self.window.fill((0, 0, 0))
         if self._track_bg is not None:
             self.window.blit(self._track_bg, self._track_offset)
-        if self._track_rewards is not None and self._debug:
-            self.window.blit(self._track_rewards, self._track_offset)
-        for car in self.mini_batch:
-            car.update_sensors(self.window, self)
+        self.cars.update_sensors(self.window, self)
         # update the collision set to determine if all cars in the minibatch have 'crashed'
         self.handle_collision()
         # Only call reset when all cars have 'died'
-        self.cars.handle_reset()
+        self.cars.handle_reset(self)
         self.cars.step_mini_batch(keys_pressed=keys_pressed)
         self.cars.update_mini_batch(simulation=self)
         self.update_and_display_labels()
@@ -354,7 +380,7 @@ class GeneticAlgorithmSimulation:
         Only works if the track_border is not None
         :return: whether the vehicle hit a wall
         """
-        for i, car in enumerate(self.mini_batch):
+        for i, car in enumerate(self.cars.mini_batch):
             if self._track_border is not None \
                     and car is not None \
                     and car.current_image is not None:
@@ -365,16 +391,13 @@ class GeneticAlgorithmSimulation:
                 col = self.border_mask.overlap(car_mask, (x, y))
                 if col is not None:
                     self.cars.collision_set.set_collision(i)
+                    car.collision = True
             else:
-                raise Exception("Track border is none.")
+                raise Exception("Track has not been properly initialized.")
 
     def update_and_display_labels(self):
-        self.fps_label.append_text(str(self._calc_fps), self._calc_fps / 2)
-        self.car_label.append_text(str(round(self.car.velocity.speed)), self._calc_fps / 2)
-        self.iteration_count_label.append_text(str(self._iteration_num))
+        self.iteration_count_label.append_text(str(self.iteration_num))
         self.iteration_count_label.render(self.window)
-        self.car_label.render(self.window)
-        self.fps_label.render(self.window)
         self.label_manager.render()
 
     # TODO implement
@@ -398,15 +421,11 @@ class GeneticAlgorithmSimulation:
     def reset(self):
         """
         resets the minibatch to begin the next one
-        Called whenever the car crashes and the next mini_batch begins
+        Called whenever all cars in mini_batch crash and the next mini_batch begins
         :return:
         """
         # restart the collision set
-        self.collision_set.clear()
-        for car in self.mini_batch:
-            # Technically this is redundant # TODO remove
-            car.reset(self)
-
+        self.cars.reset_mini_batch()
 
     def clean_up_iteration(self):
         """
@@ -414,12 +433,8 @@ class GeneticAlgorithmSimulation:
         - Find the highest ranking cars, then crossover, then mutate
         :return:
         """
-        self._iteration_num += 1
-        sorted = np.argsort(self.batch_results)
-        parent_cars = self.cars[sorted[-2:]]
-        driver1, driver2 = parent_cars[0].driver, parent_cars[1].driver
-        new_drivers = driver1.mutate(driver2, num_mutations=self.batch_size - 2)
-        new_cars = GeneticCar.generate_cars(new_drivers, params=self.car_params)
+        self.iteration_num += 1
+
 
     def init_car_start_pos(self):
         """
@@ -428,7 +443,7 @@ class GeneticAlgorithmSimulation:
         """
         self.start_pos = (875, 100)
 
-    def init_track(self) -> (str, str, str):
+    def init_track(self) -> (str, str):
         """
         Should set the images of the track (paths to the images):
         called in the constructor of the simulation class
@@ -439,7 +454,7 @@ class GeneticAlgorithmSimulation:
         """
         return \
             os.path.join("assets", "track-border.png"), \
-            os.path.join("assets", "track.png"), None
+            os.path.join("assets", "track.png")
 
 
 class GeneticAlgorithmDriver(Agent, ABC):
@@ -591,7 +606,7 @@ def main():
     num_outputs = Car.get_num_outputs()
     # step 4: initialize the drivers given the input/output numbers and put them in the cars
     initial_drivers = GeneticAlgorithmDriver.generate_drivers(BATCH_SIZE, num_inputs, num_outputs, epsilon=.25)
-    car_set.initialize_drivers(initial_drivers)
+    car_set.initialize_drivers(drivers=initial_drivers, simulation=simulation)
     # step 5: simulate!
     simulation.simulate()
 

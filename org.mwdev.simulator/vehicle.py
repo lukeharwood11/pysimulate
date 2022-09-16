@@ -62,6 +62,7 @@ class Vehicle(ABC):
 
     def init_car_image(self):
         self.image = image.load(self._image_path)
+        self.current_image = image
         self.configure_image()
         # todo optimize image processing
         # for i in range(359):
@@ -131,7 +132,7 @@ class Vehicle(ABC):
         :return: None
         """
         # get (x1,y1,x2,y2) tuples for all sensor positions
-        s = [sensor.update(window=window, simulation=simulation) for sensor in self.sensors]
+        s = [sensor.update(window=window, simulation=simulation, car=self) for sensor in self.sensors]
         if self._debug:
             self.display_sensor(car_pos=simulation.get_vehicle_image_position(), window=window)
 
@@ -242,9 +243,10 @@ class SensorBuilder:
         self.offset = 0, 0
         self.generate_sensor_points()
 
-    def get_sensor_pos(self, car_angle, sensor_angle):
+    def get_sensor_pos(self, car, car_angle, sensor_angle):
         """
 
+        :param car: the car object
         :param car_angle: the angle of the vehicle
         :param sensor_angle: the angle of the sensor relative to the car
         :param offset:
@@ -253,7 +255,7 @@ class SensorBuilder:
         # Get the sensor position given the current angle and position of the car
         sensor_absolute_angle = car_angle + sensor_angle
         sensor_pos = self._sensor_position[sensor_absolute_angle.round().value]
-        return sensor_pos + self.simulation.get_vehicle_image_position()
+        return sensor_pos + car.get_vehicle_image_position()
 
     def get_sensor_offset(self):
         """
@@ -344,38 +346,39 @@ class Sensor:
         self.pointer = pointer
         self.collision_point = None
 
-    def update(self, window: pygame.surface.Surface, simulation: Simulation):
+    def update(self, window: pygame.surface.Surface, simulation: Simulation, car):
         """
         Update the surface and the value of the sensor
         :param window: pygame window
         :param simulation: Simulation
         :return: the line coordinates as a tuple
         """
-        car = simulation.car
 
         # update the value of the surface
         surface = pygame.surface.Surface(window.get_size())
         # coords has a shape of ([sensor_depth], 2)
-        sensor_array = self.sensor_builder.get_sensor_pos(car.velocity.angle, Angle(self.angle))
+        sensor_array = self.sensor_builder.get_sensor_pos(car, car.velocity.angle, Angle(self.angle))
 
         # update the value of the sensor
-        self.update_value(sensor_array=sensor_array, simulation=simulation)
+        self.update_value(sensor_array=sensor_array, simulation=simulation, car=car)
         # np.array[x2, y2]
         self.coords = sensor_array[self.sensor_depth - 1]
         # return the line coordinates
         # x2, y2
         return self.coords[0], self.coords[1]
 
-    def update_value(self, sensor_array, simulation):
+    def update_value(self, sensor_array, simulation, car):
         """
         Check for collisions between the simulation track_border and the sensor surface
         and update the value of the sensor as either the default_val (no bit) or
         the distance between the bit and the vehicle
         Note: Error will be thrown if the track_border is None
+        :param car:
+        :param sensor_array:
         :param simulation: Simulation
         :return: None
         """
-        car_v: Velocity = simulation.car.velocity
+        car_v: Velocity = car.velocity
         border_mask = simulation.border_mask
         angle = car_v.angle + Angle(self.angle)
         # print("car angle: ", car_v.angle)
@@ -391,8 +394,8 @@ class Sensor:
                     draw.circle(simulation.window, (255, 255, 255), (x, y), 5)
                 self.value = car_v.distance_between(
                     other=Vector2D(x=point[0], y=point[1]),
-                    offset=(simulation.car.image.get_width() / 2,
-                            simulation.car.image.get_height() / 2)
+                    offset=(car.image.get_width() / 2,
+                            car.image.get_height() / 2)
                 )
                 self.collision_point = point
                 break

@@ -79,6 +79,13 @@ class Car(Vehicle, ABC):
         """
         return 5
 
+    def get_vehicle_image_position(self):
+        """
+        :return: The absolute position of the image of the vehicle (in relation to the window)
+        """
+        return np.array((self.velocity.x + (self.image.get_width() / 2) + 12,
+                  self.velocity.y + (self.image.get_height() / 2) + 12))
+
     def configure_image(self):
         self.image = transform.rotate(self.image, -90)
         self.image = transform.smoothscale(self.image, (34, 17))
