@@ -126,14 +126,17 @@ class QLearningAgent(Agent):
         self._handle_collision(wall_collision)
         reward = self._handle_reward(reward, reward_collision)
         # If the user presses the down key- restart the simulation
-        if keys_pressed[K_DOWN]:
+        if keys_pressed[K_DOWN] and self._training_model:
             reward = self._handle_restart(reward)
+        # If the user presses the up key- simply train the model
+        if keys_pressed[K_UP] and self._training_model:
+            self._train_model()
         reward = self._qlearn_params.speed_reward(reward, self.simulation.car.velocity.speed)
         self._handle_experience(reward, inputs)
         self._handle_training()
         actions = self._model.predict(inputs.reshape(1, self.num_inputs))
         action = np.argmax(actions)
-        if np.random.rand() > self.epsilon:
+        if np.random.rand() > self.epsilon and self._training_model:
             action = np.random.choice(np.arange(self.num_outputs))
         self._current_action = action
         print("Current Action:", action, "Current Reward:", reward, "Choices:", actions)
@@ -177,10 +180,11 @@ class QLearningAgent(Agent):
                 reward -= self._qlearn_params.reward - self._qlearn_params.other
             else:
                 self._last_reward_time = time.time()
-                self.simulation.label_manager.display_label(TimedLabel(
-                    position=(550, 600), timeout=2.0, queue=self.simulation.label_manager, text="Reward Found!", size=30,
-                    font=None, color=(255, 255, 255), refresh_count=None, background=(0, 0, 0), anti_alias=True
-                ), force=True)
+                if self._debug:
+                    self.simulation.label_manager.display_label(TimedLabel(
+                        position=(550, 600), timeout=2.0, queue=self.simulation.label_manager, text="Reward Found!", size=30,
+                        font=None, color=(255, 255, 255), refresh_count=None, background=(0, 0, 0), anti_alias=True
+                    ), force=True)
             self._rewarded_currently = True
         else:
             self._rewarded_currently = False

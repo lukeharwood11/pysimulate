@@ -7,7 +7,7 @@ from simulation import Simulation
 from vehicle import Vehicle, SensorBuilder
 from qlearn import QLearningAgent
 from pygame import (K_UP, K_DOWN, K_LEFT, K_RIGHT, transform)
-from gui.components import TimedLabel, TimedLabelQueue
+from gui.components import TimedLabel, Label
 import os
 
 
@@ -38,6 +38,11 @@ class DefaultSimulation(Simulation, ABC):
         """
         self.start_pos = (875, 100)
 
+    def update_and_display_arrow_display(self):
+        self.arrow_display.render(
+            self.window, (520, 500), current_actions=self.car.current_action
+        )
+
     def init_track(self) -> (str, str, str):
         """
         Should set the images of the track (paths to the images):
@@ -62,8 +67,12 @@ class Car(Vehicle, ABC):
             driver=driver,
             scale=1,
             debug=debug,
+            max_speed=20,
+            sensor_depth=sensor_depth,
             normalize=normalize
         )
+        self.odometer_label = None
+        self.speed_label = None
         self.acceleration_multiplier = acceleration_multiplier
         self.model_path = os.path.join("assets", "models")
 
@@ -118,7 +127,7 @@ class Car(Vehicle, ABC):
         Accelerate the car
         :return: None
         """
-        if self.velocity.speed < self.max_speed:
+        if self.ignore_max_speed or self.velocity.speed < self.max_speed:
             self.velocity.speed += self.acceleration_multiplier
 
     def turn(self, left=False, right=False):
@@ -150,6 +159,7 @@ class Car(Vehicle, ABC):
         i = self._get_vehicle_input()
         direction = self.driver.update(inputs=i, wall_collision=collision, reward_collision=reward,
                                        keys_pressed=keys_pressed)
+        self.current_action = direction
         accel = False
         if direction.count(0) > 0:
             self.turn(left=True)
@@ -243,8 +253,8 @@ def main():
     )
 
     simulation = DefaultSimulation(
-        debug=True,
-        fps=None,  # None means simulation fps is not tracked (Suggested for training)
+        debug=False,
+        fps=35,  # None means simulation fps is not tracked (Suggested for training)
         num_episodes=None,
         caption="Default Simulation",
         car=car,
@@ -279,8 +289,8 @@ def main():
             batch_size=64,
             replay_mem_max=400,
             save_after=100,
-            load_latest_model=False,
-            training_model=True,
+            load_latest_model=True,
+            training_model=False,
             model_path=None,
             train_each_step=False,
             debug=False,

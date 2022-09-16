@@ -25,12 +25,14 @@ class Vehicle(ABC):
                  scale: int = 1,
                  debug: bool = False,
                  max_speed: int = 20,
+                 ignore_max_speed: bool = False,
                  normalize: bool = True):
         # public attributes
         super().__init__()
         self.num_outputs = num_outputs
         self.driver = driver
         self.death_count = 0
+        self.current_action = []
         self.sensors: list[Sensor] = []
         # private attributes
         self._normalize = normalize
@@ -43,6 +45,7 @@ class Vehicle(ABC):
         self.velocity = Velocity(x=0, y=0, angle=0)
         self.odometer = 0
         self.max_speed = max_speed
+        self.ignore_max_speed = ignore_max_speed
         self.current_image = None
         self.image = None
         self.init_car_image()
