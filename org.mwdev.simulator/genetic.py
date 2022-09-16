@@ -91,11 +91,12 @@ class GeneticCar(Car):
             self.odometer += self.velocity.speed  # update odometer as the distance moved each step
         self.blit_rotate_center(window, (self.velocity.x, self.velocity.y))
         if self.collision:
-            pygame.draw.line(window, (255, 0, 0), (self.velocity.x, self.velocity.y),
-                             (self.velocity.x + self.current_image.get_width(),
+            # TODO - Magic number is simply an offset, replace with calculated value
+            pygame.draw.line(window, (255, 0, 0), (self.velocity.x + 15, self.velocity.y),
+                             (self.velocity.x + self.current_image.get_width() + 15,
                               self.velocity.y + self.current_image.get_width()), width=10)
-            pygame.draw.line(window, (255, 0, 0), (self.velocity.x, self.velocity.y + self.current_image.get_width()),
-                             (self.velocity.x + self.current_image.get_width(), self.velocity.y), width=10)
+            pygame.draw.line(window, (255, 0, 0), (self.velocity.x + 15, self.velocity.y + self.current_image.get_width()),
+                             (self.velocity.x + self.current_image.get_width() + 15, self.velocity.y), width=10)
 
 
 class GeneticCarSet:
@@ -174,7 +175,9 @@ class GeneticCarSet:
         for car in self.mini_batch:
             self.batch_results[self.batch_results_index] = car.odometer
             self.batch_results_index += 1
-            simulation.longest_distance = max(simulation.longest_distance, car.odometer)
+            if car.odometer > simulation.longest_distance:
+                simulation.best_driver = car.driver
+                simulation.longest_distance = car.odometer
             car.reset(simulation)
 
         # If the batch is done
@@ -292,6 +295,7 @@ class GeneticAlgorithmSimulation:
         self.label_manager = TimedLabelQueue(self.window)
         # this value should be overridden by child class
         self.start_pos = (0, 0)
+        self.best_driver = None
 
         # handle init
         self.init_display()
@@ -369,8 +373,11 @@ class GeneticAlgorithmSimulation:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     run = False
-                    if self.cars is not None:
-                        print("Saving Car...")
+                    if self.best_driver is not None:
+                        path = os.path.join("assets", "models")
+                        if not os.path.exists(path):
+                            os.mkdir(path)
+                        self.best_driver.save_model(os.path.join("assets", "models"))
                     break
             t = self.current_timestamp
             self.current_timestamp = time()
@@ -572,7 +579,7 @@ class GeneticAlgorithmDriver(Agent, ABC):
         return ret
 
     @staticmethod
-    def generate_drivers(num_drivers, num_inputs, num_outputs, epsilon):
+    def generate_drivers(num_drivers, num_inputs, num_outputs, epsilon, load_latest=False):
         """
         create a list of random Drivers
         :param num_inputs:
@@ -580,6 +587,11 @@ class GeneticAlgorithmDriver(Agent, ABC):
         :param num_drivers:
         :return:
         """
+        if load_latest:
+            parent = GeneticAlgorithmDriver(num_inputs, num_outputs, driver_id=0, epsilon=epsilon)
+            parent.load_model(os.path.join("assets", "models"))
+            mutations = parent.mutate(num_drivers-1)
+            return np.array([parent] + mutations)
         return np.array([GeneticAlgorithmDriver(num_inputs, num_outputs, driver_id=identifier, epsilon=epsilon)
                          for identifier in range(num_drivers)])
 
@@ -589,7 +601,12 @@ class GeneticAlgorithmDriver(Agent, ABC):
         :param path: the path to the model
         :return: None
         """
-        pass
+        path_name = os.path.join(path, "latest_genetic")
+        if not os.path.exists(path_name):
+            os.mkdir(path_name)
+        np.save(os.path.join(path_name, "w1"), self.w1)
+        np.save(os.path.join(path_name, "w2"), self.w2)
+        np.save(os.path.join(path_name, "w3"), self.w3)
 
     def load_model(self, path):
         """
@@ -597,14 +614,17 @@ class GeneticAlgorithmDriver(Agent, ABC):
         :param path: the path to the model
         :return: None
         """
-        pass
+        path_name = os.path.join(path, "latest_genetic")
+        self.w1 = np.load(os.path.join(path_name, "w1.npy"))
+        self.w2 = np.load(os.path.join(path_name, "w2.npy"))
+        self.w3 = np.load(os.path.join(path_name, "w3.npy"))
 
 
 def main():
     # the number of cars within a particular batch
     BATCH_SIZE = 100
     # the number of cars to render on the screen at once
-    MINI_BATCH_SIZE = 5
+    MINI_BATCH_SIZE = 20
     # step 1: generate cars, and create a new car set
     genetic_cars = GeneticCar.generate_cars(BATCH_SIZE, params=None)
     car_set = GeneticCarSet(genetic_cars, MINI_BATCH_SIZE)
@@ -635,7 +655,7 @@ def main():
     num_inputs = car_set.get_external_inputs() + sb.num_sensors
     num_outputs = Car.get_num_outputs()
     # step 4: initialize the drivers given the input/output numbers and put them in the cars
-    initial_drivers = GeneticAlgorithmDriver.generate_drivers(BATCH_SIZE, num_inputs, num_outputs, epsilon=.50)
+    initial_drivers = GeneticAlgorithmDriver.generate_drivers(BATCH_SIZE, num_inputs, num_outputs, epsilon=.50, load_latest=True)
     car_set.initialize_drivers(drivers=initial_drivers, simulation=simulation)
     # step 5: simulate!
     simulation.simulate()
