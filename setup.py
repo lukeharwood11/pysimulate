@@ -11,7 +11,7 @@ setup(
   url="https://github.com/lukeharwood11/ai-racecar-simulator",
   author="Luke Harwood",
   author_email="mwstudiodev@gmail.com",
-  version="1.0.2",
+  version="1.0.3",
   description="AI Track Simulator is an easy-to-use Simulator engine built in pygame",
   long_description=long_description,
   packages=find_packages("org.mwdev.simulator"),
