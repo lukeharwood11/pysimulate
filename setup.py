@@ -2,21 +2,21 @@ from setuptools import setup, find_packages
 
 classifiers = []
 
-with (open("README.md")) as f: 
+with (open("description.txt")) as f:
   long_description = f.read()
  
 
 setup(
-  name="ai_racecar_simulator",
+  name="pysimulate",
   url="https://github.com/lukeharwood11/ai-racecar-simulator",
   author="Luke Harwood",
   author_email="mwstudiodev@gmail.com",
-  version="1.0.2",
+  version="1.1.0",
   description="AI Track Simulator is an easy-to-use Simulator engine built in pygame",
   long_description=long_description,
-  packages=find_packages("org.mwdev.simulator"),
+  packages=["pysimulate"],
   keywords='simulator ai-gym racecar',
-  package_dir={'': 'org.mwdev.simulator'},
+  package_dir={'': 'org.mwdev'},
   include_package_data=True,
   license="MIT",
   classifiers=classifiers,

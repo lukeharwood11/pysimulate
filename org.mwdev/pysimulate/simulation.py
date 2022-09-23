@@ -21,12 +21,12 @@ class Simulation(ABC):
         Simulation should hold only the information relevant to the actual simulation and not any information
         about the agent driving (the ai or human)
 
-        Rewards should be initialized within the agent itself and not the simulator
+        Rewards should be initialized within the agent itself and not the pysimulate
 
         :param debug: whether or not sensors/etc. will be shown
-        :param fps: None if simulation is not run based on fps (speed of while-loop) otherwise fps of simulator
+        :param fps: None if simulation is not run based on fps (speed of while-loop) otherwise fps of pysimulate
         :param num_episodes: the number of episodes (crashes) before the simulation dies
-                            - None if the simulator runs forever
+                            - None if the pysimulate runs forever
         """
         pygame.init()
 
