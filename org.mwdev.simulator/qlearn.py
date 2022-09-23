@@ -3,7 +3,7 @@ import time
 
 import numpy as np
 from gui.components import TimedLabel, TimedLabelQueue
-from keras.optimizer_v2.adam import Adam
+from tensorflow.keras.optimizers import Adam
 from agent import Agent
 from tensorflow.keras import Sequential
 from tensorflow.keras.layers import Dense, InputLayer
