@@ -23,6 +23,6 @@ setup(
   command_options={},
   python_requires=">=3.6",
   install_requires=[
-    'numpy', 'tensorflow', 'pygame', 'keras'
+    'numpy', 'tensorflow', 'pygame', 'keras', 'sklearn', 'scikit-learn'
   ]
 )
