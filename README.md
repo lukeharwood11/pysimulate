@@ -1,5 +1,8 @@
 # Racecar Simulator
 
+```
+pip install ai-racecar-simulator==1.0.2
+```
 ## Purpose
 
 This project provides a framework to build a simulator to test different agents in a simple environment. This allows you to control the inputs/outputs of the system in python and hotswap the 'drivers' to the vehicles.
