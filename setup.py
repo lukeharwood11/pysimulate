@@ -2,8 +2,7 @@ from setuptools import setup, find_packages
 
 classifiers = []
 
-with (open("description.txt")) as f:
-  long_description = f.read()
+long_description = "AI Racing Simulator"
  
 
 setup(
@@ -11,7 +10,7 @@ setup(
   url="https://github.com/lukeharwood11/ai-racecar-simulator",
   author="Luke Harwood",
   author_email="mwstudiodev@gmail.com",
-  version="1.1.0",
+  version="1.1.3",
   description="AI Track Simulator is an easy-to-use Simulator engine built in pygame",
   long_description=long_description,
   packages=["pysimulate"],
