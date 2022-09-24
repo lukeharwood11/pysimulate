@@ -1,0 +1,6 @@
+include *.txt
+include LICENSE
+recursive-include src *.h5
+recursive-include src *.npy
+recursive-include src *.png
+recursive-include src *.py
