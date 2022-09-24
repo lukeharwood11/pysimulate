@@ -1,4 +1,4 @@
-# Racecar Simulator
+# pysimulate
 
 ```
 pip install pysimulate
