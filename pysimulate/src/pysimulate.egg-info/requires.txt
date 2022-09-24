@@ -1,6 +1,0 @@
-numpy
-tensorflow
-pygame
-keras
-sklearn
-scikit-learn
