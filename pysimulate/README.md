@@ -1,7 +1,7 @@
-# Racecar Simulator
+# pysimulate
 
 ```
-pip install ai-racecar-simulator==1.0.2
+pip install pysimulate
 ```
 ## Purpose
 

@@ -7,7 +7,6 @@ from simulation import Simulation
 from vehicle import Vehicle, SensorBuilder
 from qlearn import QLearningAgent
 from pygame import (K_UP, K_DOWN, K_LEFT, K_RIGHT, transform)
-from gui.components import TimedLabel, Label
 import os
 
 

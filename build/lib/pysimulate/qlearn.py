@@ -2,12 +2,12 @@ import os
 import time
 
 import numpy as np
-from gui.components import TimedLabel, TimedLabelQueue
+from components import TimedLabel
 from tensorflow.keras.optimizers import Adam
 from agent import Agent
 from tensorflow.keras import Sequential
 from tensorflow.keras.layers import Dense, InputLayer
-from pygame import (K_UP, K_DOWN, K_LEFT, K_RIGHT, transform)
+from pygame import (K_UP, K_DOWN)
 
 
 class Experience:

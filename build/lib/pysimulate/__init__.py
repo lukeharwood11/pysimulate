@@ -1,4 +1,4 @@
-from gui.components import *
+from .components import *
 from .vector2d import *
 from .simulation import *
 from .utils import *

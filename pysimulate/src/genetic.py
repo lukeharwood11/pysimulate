@@ -5,11 +5,11 @@ import numpy as np
 import pygame
 from pygame import K_DOWN
 
-from gui.components import TimedLabelQueue, TimedLabel, Label
+from components import TimedLabelQueue, Label
 from agent import Agent
 from example import Car
 import os
-from vehicle import SensorBuilder, Sensor
+from vehicle import SensorBuilder
 from utils import CollisionSet
 
 
@@ -250,12 +250,12 @@ class GeneticAlgorithmSimulation:
                 Simulation should hold only the information relevant to the actual simulation and not any information
                 about the agent driving (the ai or human)
 
-                Rewards should be initialized within the agent itself and not the pysimulate
+                Rewards should be initialized within the agent itself and not the src
 
                 :param debug: whether or not sensors/etc. will be shown
-                :param fps: None if simulation is not run based on fps (speed of while-loop) otherwise fps of pysimulate
+                :param fps: None if simulation is not run based on fps (speed of while-loop) otherwise fps of src
                 :param num_episodes: the number of episodes (crashes) before the simulation dies
-                                    - None if the pysimulate runs forever
+                                    - None if the src runs forever
                 """
         pygame.init()
 
