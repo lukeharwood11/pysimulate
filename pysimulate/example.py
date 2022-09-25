@@ -287,8 +287,8 @@ def main():
             batch_size=64,
             replay_mem_max=400,
             save_after=100,
-            load_latest_model=True,
-            training_model=False,
+            load_latest_model=False,
+            training_model=True,
             model_path=None,
             train_each_step=False,
             debug=False,
@@ -298,7 +298,7 @@ def main():
     }
 
     # Change this line to select different drivers
-    driver = driver_map['qlearn']
+    driver = driver_map['user']
 
     # sensors = sb.generate_sensors([0])
     # Attach sensors to car

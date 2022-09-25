@@ -14,10 +14,10 @@ Use this repo to build your own AI drivers and test them on your own tracks!
 - [pygame docs](https://www.pygame.org/docs/)
 
 ## About
-This project was built using the pygame and numpy libraries. In order to install these dependencies use: 
 
+In order to install dependencies for local development (using `setup.py`), use the command:
 ```
-pip install -r requirements.txt
+pip install -e .
 ```
 
 Extend from the abstract class `Simulation` from `simulation.py` in order to create a custom simulation or simply use the `DefaultSimulation` class.

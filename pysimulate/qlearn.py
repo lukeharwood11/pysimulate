@@ -121,6 +121,7 @@ class QLearningAgent(Agent):
         :param keys_pressed: a map of pressed keys (ignore, n/a)
         :return direction: int [0 - num_outputs)
         """
+        inputs = np.expand_dims(inputs, axis=0)
         reward = self._get_reward(reward_collision, wall_collision)
         # Change internal states
         self._handle_collision(wall_collision)
@@ -134,7 +135,7 @@ class QLearningAgent(Agent):
         reward = self._qlearn_params.speed_reward(reward, self.simulation.car.velocity.speed)
         self._handle_experience(reward, inputs)
         self._handle_training()
-        actions = self._model.predict(inputs.reshape(1, self.num_inputs))
+        actions = self._model.predict(inputs)
         action = np.argmax(actions)
         if np.random.rand() > self.epsilon and self._training_model:
             action = np.random.choice(np.arange(self.num_outputs))
@@ -215,13 +216,13 @@ class QLearningAgent(Agent):
         X_train = np.zeros((self.batch_size, self.num_inputs))
         y_train = np.zeros((self.batch_size, self.num_outputs))
         for i, experience in enumerate(batch):
-            current_state = np.array(experience.current_state).reshape(1, self.num_inputs)  # TODO reshape
+            current_state = np.array(experience.current_state)
             # predict the q_values
             q_value_prediction = self._model.predict(current_state)
             # set the target to be what the experience actually was
             q_target = experience.res_reward
-            resulting_state = np.array(experience.next_state)  # TODO reshape
-            q_target = q_target + self.y * np.max(self._model.predict(resulting_state.reshape(1, self.num_inputs))[0])
+            resulting_state = np.array(experience.next_state)
+            q_target = q_target + self.y * np.max(self._model.predict(resulting_state)[0])
             # adjust the weights (no other q_vals are impacted)
             q_value_prediction[0][experience.current_action] = q_target
             X_train[i] = current_state
