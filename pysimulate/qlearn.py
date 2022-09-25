@@ -3,10 +3,10 @@ import time
 
 import numpy as np
 from components import TimedLabel
-from tensorflow.keras.optimizers import Adam
+from keras.optimizers import Adam
 from agent import Agent
-from tensorflow.keras import Sequential
-from tensorflow.keras.layers import Dense, InputLayer
+from keras import Sequential
+from keras.layers import Dense, InputLayer
 from pygame import (K_UP, K_DOWN)
 
 
