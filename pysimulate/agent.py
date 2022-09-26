@@ -39,3 +39,54 @@ class Agent(ABC):
         :return: None
         """
         pass
+
+class GameControlDriver(Agent, ABC):
+
+    def __init__(self, num_inputs, num_outputs):
+        """
+        Default controls for human driver
+        :param num_inputs: the number of inputs (sensors/collision/reward)
+        :param num_outputs: the number of outputs (driver-actions/left/right/etc.)
+        """
+        super().__init__(num_inputs, num_outputs)
+
+    def update(self, inputs, reward_collision=False, wall_collision=False, keys_pressed=None) -> list[int]:
+        """
+        - Encode the inputs to integers 0 - 3
+        :param wall_collision: n/a
+        :param reward_collision: n/a
+        :param inputs: the input from the car sensors (n/a)
+        :param keys_pressed: the keys pressed from the user
+        :return: a list of output encodings (0 - 3) representing requested movement
+        """
+        print(
+            "collision", wall_collision,
+            "reward_collision", reward_collision,
+            "inputs", inputs
+        )
+        ret = []
+        if keys_pressed[K_LEFT]:
+            ret.append(0)
+        if keys_pressed[K_UP]:
+            ret.append(1)
+        if keys_pressed[K_RIGHT]:
+            ret.append(2)
+        if keys_pressed[K_DOWN]:
+            ret.append(3)
+        return ret
+
+    def save_model(self, path):
+        """
+        do nothing
+        :param path: n/a
+        :return: n/a
+        """
+        pass
+
+    def load_model(self, path):
+        """
+        do nothing
+        :param path: n/a
+        :return: n/a
+        """
+        pass

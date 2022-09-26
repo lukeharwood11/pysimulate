@@ -222,6 +222,138 @@ class Vehicle(ABC):
         pass
 
 
+class Car(Vehicle, ABC):
+
+    def __init__(self, driver, debug=False, acceleration_multiplier=.5, normalize=True):
+        super(Car, self).__init__(
+            num_outputs=5,
+            image_path=os.path.join("assets", "grey-car.png"),
+            driver=driver,
+            scale=1,
+            debug=debug,
+            max_speed=20,
+            normalize=normalize
+        )
+        self.odometer_label = None
+        self.speed_label = None
+        self.acceleration_multiplier = acceleration_multiplier
+        self.model_path = os.path.join("assets", "models")
+
+    @staticmethod
+    def get_num_outputs():
+        """
+        0 = left
+        1 = accelerate
+        2 = right
+        3 = break
+        4 = coast
+        :return: number of inputs
+        """
+        return 5
+
+    def get_vehicle_image_position(self):
+        """
+        :return: The absolute position of the image of the vehicle (in relation to the window)
+        """
+        return np.array((self.velocity.x + (self.image.get_width() / 2) + 12,
+                  self.velocity.y + (self.image.get_height() / 2) + 12))
+
+    def configure_image(self):
+        self.image = transform.rotate(self.image, -90)
+        self.image = transform.smoothscale(self.image, (34, 17))
+
+    def save_car(self):
+        """
+        - Should save the model of the driver and any other important information
+        :return: None
+        """
+        if self.driver is not None:
+            if not os.path.exists(self.model_path):
+                os.mkdir(self.model_path)
+            self.driver.save_model(self.model_path)
+
+    def reset(self, simulation):
+        """
+        - Resets the car properties, so it is ready for another episode
+        :return: None
+        """
+        self.velocity.reset_velocity(
+            x=simulation.start_pos[0],
+            y=simulation.start_pos[1],
+            angle=180,
+            speed=0
+        )
+        self.odometer = 0
+
+    def accelerate(self):
+        """
+        Accelerate the car
+        :return: None
+        """
+        if self.ignore_max_speed or self.velocity.speed < self.max_speed:
+            self.velocity.speed += self.acceleration_multiplier
+
+    def turn(self, left=False, right=False):
+        if left:
+            self.velocity.turn(self.velocity.speed * .6)
+        if right:
+            self.velocity.turn(self.velocity.speed * -.6)
+
+    def brake(self):
+        """
+        Slow down the car or stop if the speed is less than a threshold value
+        :return: None
+        """
+        if self.velocity.speed > 1:
+            self.velocity.speed -= self.acceleration_multiplier
+        else:
+            self.velocity.speed = 0
+
+    def step(self, reward: bool, collision: bool, keys_pressed):
+        """
+        - Given the reward, collision info and the current input from the sensors, move the car
+        - In this implementation of step() the inputs consist of the sensor depths with the last two values of inputs
+        being collision (input[-2]) and reward (input[-1]) with 1 being a collision/reward True and 0 being False
+        :param keys_pressed: pygame keys pressed
+        :param reward: whether the car is over a reward
+        :param collision: whether the car is over a collision
+        :return: None
+        """
+        i = self._get_vehicle_input()
+        direction = self.driver.update(inputs=i, wall_collision=collision, reward_collision=reward,
+                                       keys_pressed=keys_pressed)
+        self.current_action = direction
+        accel = False
+        if direction.count(0) > 0:
+            self.turn(left=True)
+        if direction.count(1) > 0:
+            self.accelerate()
+            accel = True
+        if direction.count(2) > 0:
+            self.turn(right=True)
+        if direction.count(3) > 0:
+            self.brake()
+        if not accel:
+            self.deccelerate()
+
+    def deccelerate(self):
+        self.velocity.speed = .98 * self.velocity.speed
+
+    def get_external_inputs(self):
+        """
+        :return: 1 for speed
+        """
+        return 1
+
+    def _get_vehicle_input(self):
+        """
+        :return: a numpy array of the values from the sensors
+        """
+        np_array = np.array([sensor.value for sensor in self.sensors] + [self.velocity.speed])
+        norm = np.linalg.norm(np_array)
+        return np_array/norm if self._normalize else np_array
+
+
 class SensorBuilder:
 
     def __init__(self, depth: int, sim: Simulation, default_value=None, color=(0, 0, 0), width=2, pointer=True):

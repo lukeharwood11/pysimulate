@@ -309,3 +309,50 @@ class Simulation(ABC):
 
     def display_sensor_values(self, start_pos: (int, int)):
         pass
+
+class DefaultSimulation(Simulation, ABC):
+
+    def __init__(self,
+                 debug=True,
+                 fps=None,
+                 num_episodes=None,
+                 caption: str = None,
+                 car: Vehicle = None,
+                 track_offset=(0, 0),
+                 screen_size=(1400, 800),
+                 track_size=(1400, 800)):
+        super(DefaultSimulation, self).__init__(debug=debug,
+                                                fps=fps,
+                                                num_episodes=num_episodes,
+                                                caption=caption,
+                                                car=car,
+                                                track_offset=track_offset,
+                                                screen_size=screen_size,
+                                                track_size=track_size)
+
+    def init_car_start_pos(self):
+        """
+        sets the start position of the car
+        :return:
+        """
+        self.start_pos = (875, 100)
+
+    def update_and_display_arrow_display(self):
+        self.arrow_display.render(
+            self.window, (520, 500), current_actions=self.car.current_action
+        )
+
+    def init_track(self) -> (str, str, str):
+        """
+        Should set the images of the track (paths to the images):
+        called in the constructor of the simulation class
+        - track border
+        - track bg
+        - track rewards
+        :return: the path to the tracks in the order 'border, background (design), rewards'
+        """
+        return \
+            os.path.join("assets", "track-border.png"), \
+            os.path.join("assets", "track.png"), \
+            os.path.join("assets", "track-rewards.png")
+
