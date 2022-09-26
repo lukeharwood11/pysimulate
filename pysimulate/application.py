@@ -17,6 +17,7 @@ class AppFunction:
         self.func = func
         self.requires_app = requires_app
 
+
 class Event:
 
     def __init__(self, event_type):
@@ -25,13 +26,16 @@ class Event:
     def consume(self):
         pass
 
+
 class EventManager:
 
     def __init__(self, document):
         self.document = document
+        self._subscriptions = {}
 
     def fire(self, event):
         pass
+
 
 class Document:
 
@@ -40,6 +44,7 @@ class Document:
         self._style_sheet = {}
         self._window = window
         self._elements["root"] = Element(element_id="root")
+        self._event_manager = EventManager(self)
 
     def get_root_element(self):
         """
@@ -83,7 +88,8 @@ class Document:
         :param element:
         :return:
         """
-        assert self._elements.get(element.id) is None, "Illegal Operation: Attempting to add element with duplicate id: {}".format(element.id)
+        assert self._elements.get(
+            element.id) is None, "Illegal Operation: Attempting to add element with duplicate id: {}".format(element.id)
         self._elements[element.id] = element
 
     def remove_element(self, element):
@@ -105,9 +111,13 @@ class Document:
     def pack(self):
         """
         Verifies layout of application and ensures no errors were made when assembling DOM
+        - Ensures that no element_ids are the same
         :return: None
         """
         pass
+
+    def manage_event(self, event):
+        self._event_manager.fire(event)
 
     def render(self, application):
         """
@@ -145,7 +155,6 @@ class App:
 
         self.window = self.init_window()
         self.document = Document(self.window)
-        self.event_manager = EventManager(self.document)
 
         self.fps = fps
         self.running_fps = 0
@@ -195,8 +204,7 @@ class App:
                     running = False
                     for save in self._on_close:
                         save.func(self) if save.requires_app else save.func()
-
-
+                self.document.manage_event(event)
             if self.fps is not None:
                 self.clock.tick(self.fps)
             self.document.render(self)

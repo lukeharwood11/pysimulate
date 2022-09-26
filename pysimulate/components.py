@@ -24,22 +24,27 @@ class Action:
         self.active = active
 
 
-class ActionSubscription:
+class ActionSubscriptions:
 
-    def __init__(self, event_type, active=True):
-        self.event_type = event_type
-        self.actions = []
-        self.active = active
+    def __init__(self):
+        self.subscriptions = {}
 
-    def run(self):
-        for i in self.actions:
+    def add_subscription(self, action):
+        if self.subscriptions[action.event_type] is None:
+            self.subscriptions[action.event_type] = []
+        self.subscriptions[action.event_type].append(action)
+
+    def fire(self, event_type):
+        if self.subscriptions[event_type] is None:
+            self.subscriptions[event_type] = []
+        for i in self.subscriptions[event_type]:
             if i.active:
                 i.func()
 
 
 class Element:
 
-    def __init__(self, top=0, left=0, width=0, height=0, element_id=None, class_name=None):
+    def __init__(self, top=0, left=0, width=0, height=0, element_id=None, class_name=None, dom=None):
         """
 
         """
@@ -51,8 +56,11 @@ class Element:
         self.id = element_id
         self.rect = pygame.Rect(left, top, width, height)
         self.surface = pygame.Surface((self.rect.w, self.rect.h))
-        self.subscriptions = {}  # dict holding all subscriptions
+        self.action_subscriptions = ActionSubscriptions()  # dict holding all subscriptions
         # private attributes
+        if self.id == "root":
+            assert dom is not None, "DOM cannot be None for root element"
+            self.dom = dom
         self._children = []
         self._elements = {}
         self._num_children = 0
@@ -88,11 +96,12 @@ class Element:
         :param element: the element to add
         :return: None
         """
-        self._children.append(element)
         if element.id is not None:
             assert self._elements.get(
                 element.id) is None, "Illegal Operation: Attempting to add element with duplicate id: {}".format(
                 element.id)
+            element.parent_element = self
+            self._children.append(element)
             self._child_id = self._num_children
             self._elements[element] = element
         self._num_children += 1
@@ -141,7 +150,20 @@ class Element:
                 element.remove_child(element)
         return None
 
-    def subscribe_to_event(self, event_type, action):
+    def add_event_listener(self, event_type, action):
+        self.action_subscriptions.add_subscription(Action(event_type, action))
+        self.parent_element.propagate_event_subscription(event_type, self.id)
+
+    def fire_event(self, event_type):
+        self.action_subscriptions.fire(event_type)
+
+    def propagate_event_subscription(self, event_type, id):
+        """
+        Propagates an event subscription to the root element
+        :param event_type:
+        :param id:
+        :return:
+        """
         pass
 
 
