@@ -155,16 +155,24 @@ class Element:
         self.parent_element.propagate_event_subscription(event_type, self.id)
 
     def fire_event(self, event_type):
-        self.action_subscriptions.fire(event_type)
-
-    def propagate_event_subscription(self, event_type, id):
         """
-        Propagates an event subscription to the root element
+        Fires an event of type [event_type] for the given element
         :param event_type:
-        :param id:
         :return:
         """
-        pass
+        self.action_subscriptions.fire(event_type)
+
+    def propagate_event_subscription(self, event_type, element_id):
+        """
+        Propagates an event subscription to the root element
+        :param element_id: The element that is assigned to the event
+        :param event_type: The type of event that is assigned to the element
+        :return:
+        """
+        if self.dom is not None:
+            self.dom.add_event_listener(event_type, element_id)
+        else:
+            self.parent_element.propagate_event_subscription(event_type, element_id)
 
 
 class ArrowKeysDisplay:

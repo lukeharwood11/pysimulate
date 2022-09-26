@@ -3,7 +3,7 @@ from time import time
 
 import pygame
 
-from pysimulate import Element
+from pysimulate import Element, ActionSubscriptions
 from utils import calculate_fps
 
 
@@ -33,8 +33,16 @@ class EventManager:
         self.document = document
         self._subscriptions = {}
 
-    def fire(self, event):
-        pass
+    def add_subscription(self, event_type, element_id):
+        if self._subscriptions.get(event_type) is None:
+            self._subscriptions[event_type] = []
+        self._subscriptions[event_type].append(element_id)
+
+    def fire(self, event_type):
+        if self._subscriptions.get(event_type) is None:
+            self._subscriptions[event_type] = []
+        for e_id in self._subscriptions[event_type]:
+            self.document.get_element_by_id(e_id).fire_event(event_type)
 
 
 class Document:
@@ -118,6 +126,9 @@ class Document:
 
     def manage_event(self, event):
         self._event_manager.fire(event)
+
+    def add_event_listener(self, event_type, element_id):
+        self._event_manager.add_subscription()
 
     def render(self, application):
         """
