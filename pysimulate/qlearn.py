@@ -235,18 +235,18 @@ class QLearningAgent(Agent):
         Save the current model to a unique location representing the current iteration
         :return: None
         """
-        self._model.save_weights("assets/models/model_" + str(self._collision_count) + ".h5")
+        self._model.save_weights(self.model_dir + str(self._collision_count) + ".h5")
 
-    def save_model(self, path):
+    def save_model(self):
         """
         - Save the brain of the agent to some file (or don't)
         :param path: the path to the model
         :return: None
         """
-        self._model.save_weights(os.path.join(path, 'latest.h5'))
+        self._model.save_weights(os.path.join(self.model_dir, 'latest.h5'))
 
     def init_default_model_weights(self):
-        self._model.load_weights(os.path.join("assets", "models", "latest.h5"))
+        self._model.load_weights(os.path.join(self.model_dir, "latest.h5"))
 
     def load_model(self, path):
         """
@@ -254,4 +254,4 @@ class QLearningAgent(Agent):
         :param path: the path to the model
         :return: None
         """
-        self._model.load_weights(os.path.join("assets", "models", path))
+        self._model.load_weights(os.path.join(self.model_dir, path))

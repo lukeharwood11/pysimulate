@@ -28,7 +28,7 @@ class Agent(ABC):
         pass
 
     @abstractmethod
-    def save_model(self, path):
+    def save_model(self):
         """
         - Save the brain of the agent to some file (or don't)
         :param path: the path to the model
@@ -54,6 +54,7 @@ class Agent(ABC):
         self.model_dir = dir
         if force_create and not os.path.exists(dir):
             os.mkdir(dir)
+
 
 class GameControlDriver(Agent, ABC):
 
@@ -85,7 +86,7 @@ class GameControlDriver(Agent, ABC):
             ret.append(3)
         return ret
 
-    def save_model(self, path):
+    def save_model(self):
         """
         do nothing
         :param path: n/a

@@ -377,7 +377,7 @@ class GeneticAlgorithmSimulation:
                         path = os.path.join("assets", "models")
                         if not os.path.exists(path):
                             os.mkdir(path)
-                        self.best_driver.save_model(os.path.join("assets", "models"))
+                        self.best_driver.save_model()
                     break
             t = self.current_timestamp
             self.current_timestamp = time()

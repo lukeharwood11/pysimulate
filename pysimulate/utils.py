@@ -3,6 +3,10 @@ from enum import Enum
 import numpy as np
 
 
+def calculate_fps(time_elapsed):
+    return round(1 / time_elapsed)
+
+
 class LogLevel(Enum):
     DEBUG = 0,
     TRACE = 1,

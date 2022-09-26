@@ -1,8 +1,32 @@
+from abc import ABC
+
 import numpy as np
 import pygame
 import time
 
 from typing import List
+
+
+class Component:
+
+    def __init__(self):
+        """
+
+        """
+        self.x = 0
+        self.y = 0
+        self.rect = None
+        self.surface = None
+        self.components = []
+
+    def update(self, application):
+        pass
+
+    def render(self, app):
+        self.update(app)
+        app.window.blit(self.surface, (self.x, self.y))
+        for c in self.components:
+            c.render(app.window)
 
 
 class ArrowKeysDisplay:
@@ -47,7 +71,6 @@ class ArrowKeysDisplay:
                              self._right_key_rect.move(*position), width=10, border_radius=10)
             pygame.draw.rect(window, self.border,
                              self._down_key_rect.move(*position), width=10, border_radius=10)
-
 
     def build_model(self) -> np.array:
         # format is x1, y1, width, height

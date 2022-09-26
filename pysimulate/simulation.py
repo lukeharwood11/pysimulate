@@ -1,6 +1,8 @@
 import os
 from abc import ABC, abstractmethod
 from time import time
+
+from application import App
 from components import Label, TimedLabelQueue, ArrowKeysDisplay
 import numpy as np
 import pygame
@@ -8,29 +10,55 @@ import pygame
 from vehicle import Vehicle
 
 
-class Simulation(ABC):
+class Simulation(App, ABC):
 
-    def __init__(self,
-                 debug=True,
-                 fps=None,
-                 num_episodes=None,
-                 caption: str = None,
-                 car=None,
-                 track_offset=(0, 0),
-                 screen_size=(1400, 800),
-                 track_size=(1400, 800)):
+    def __init__(self, num_iterations):
+        super().__init__()
+        self.num_iterations = num_iterations
+
+    def simulate(self):
         """
-
-        Simulation should hold only the information relevant to the actual simulation and not any information
-        about the agent driving (the ai or human)
-
-        Rewards should be initialized within the agent itself and not the src
-
-        :param debug: whether or not sensors/etc. will be shown
-        :param fps: None if simulation is not run based on fps (speed of while-loop) otherwise fps of src
-        :param num_episodes: the number of episodes (crashes) before the simulation dies
-                            - None if the src runs forever
+        main 'game-loop' for simulation
+        :return: None
         """
+        # - - - - - - - - - - - - - - - - - - - - - - - - - -
+        print("Begin simulation init...")
+        run = True
+        pygame.display.set_caption(self._caption)
+        if self.car is not None:
+            print("Initializing car image conversion...")
+            self.car.image = self.car.image.convert()
+            self.car.reset(simulation=self)
+        print("Done!")
+        # - - - - - - - - - - - - - - - - - - - - - - - - - -
+        while run:
+            if self._fps is not None and run:
+                self._clock.tick(self._fps)
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    run = False
+                    if self.car is not None:
+                        print("Saving Car...")
+                        self.car.save_car()
+                    break
+            t = self.current_timestamp
+            self.current_timestamp = time()
+            if t is not None:
+                self.calculate_fps(self.current_timestamp - t)
+            keys_pressed = pygame.key.get_pressed()
+            self.update_display(keys_pressed)
+
+
+class CarTestSimulation(Simulation, ABC):
+
+    def __init__(self, num_iterations, debug=True, fps=None, num_episodes=None, caption: str = None,
+                 car: Vehicle = None, track_offset=(0, 0), screen_size=(1400, 800), track_size=(1400, 800)):
+
+        super().__init__(num_iterations)
+        self.border_path = None
+        self.track_path = None
+        self.rewards_path = None
+
         # private attributes
         self._screen_dim = screen_size
         self._track_dim = track_size
@@ -46,11 +74,9 @@ class Simulation(ABC):
         self._track_rewards = None
         self.rewards_mask = None
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        self._clock = pygame.time.Clock()
         self._iteration_num = 1
         self._debug = debug
         self._max_episodes = num_episodes
-        self._caption = caption
         self._track_offset = track_offset
 
         # a list of rects that have been updated since the last screen refresh
@@ -161,43 +187,7 @@ class Simulation(ABC):
         self.iteration_count_label = Label((1100, 10), "Iteration: ", size=30, font=None, color=(0, 0, 0),
                                            background=(255, 255, 255), anti_alias=True)
 
-    def simulate(self):
-        """
-        main 'game-loop' for simulation
-        :return: None
-        """
-        # - - - - - - - - - - - - - - - - - - - - - - - - - -
-        print("Begin simulation init...")
-        run = True
-        pygame.display.set_caption(self._caption)
-        if self.car is not None:
-            print("Initializing car image conversion...")
-            self.car.image = self.car.image.convert()
-            self.car.reset(simulation=self)
-        print("Done!")
-        # - - - - - - - - - - - - - - - - - - - - - - - - - -
-        while run:
-            if self._fps is not None and run:
-                self._clock.tick(self._fps)
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    run = False
-                    if self.car is not None:
-                        print("Saving Car...")
-                        self.car.save_car()
-                    break
-            t = self.current_timestamp
-            self.current_timestamp = time()
-            if t is not None:
-                self.calculate_fps(self.current_timestamp - t)
-            keys_pressed = pygame.key.get_pressed()
-            self.update_display(keys_pressed)
 
-    def calculate_fps(self, time_elapsed):
-        # convert to seconds (from milliseconds)
-        t = time_elapsed
-        # save to attribute
-        self._calc_fps = round(1 / t)
 
     def update_display(self, keys_pressed):
         """
@@ -308,30 +298,6 @@ class Simulation(ABC):
 
     def display_sensor_values(self, start_pos: (int, int)):
         pass
-
-
-class CarTestSimulation(Simulation, ABC):
-
-    def __init__(self,
-                 debug=True,
-                 fps=None,
-                 num_episodes=None,
-                 caption: str = None,
-                 car: Vehicle = None,
-                 track_offset=(0, 0),
-                 screen_size=(1400, 800),
-                 track_size=(1400, 800)):
-        super(CarTestSimulation, self).__init__(debug=debug,
-                                                fps=fps,
-                                                num_episodes=num_episodes,
-                                                caption=caption,
-                                                car=car,
-                                                track_offset=track_offset,
-                                                screen_size=screen_size,
-                                                track_size=track_size)
-        self.border_path = None
-        self.track_path = None
-        self.rewards_path = None
 
     def set_track_paths(self, border_path, track_path, rewards_path):
         """
