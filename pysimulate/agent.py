@@ -61,11 +61,6 @@ class GameControlDriver(Agent, ABC):
         :param keys_pressed: the keys pressed from the user
         :return: a list of output encodings (0 - 3) representing requested movement
         """
-        print(
-            "collision", wall_collision,
-            "reward_collision", reward_collision,
-            "inputs", inputs
-        )
         ret = []
         if keys_pressed[K_LEFT]:
             ret.append(0)

@@ -103,7 +103,8 @@ class QLearningAgent(Agent):
         self._model.add(Dense(32, activation='tanh'))
         self._model.add(Dense(self.num_outputs))
         self._model.compile(loss='mse', optimizer=Adam(learning_rate=self.alpha))
-        self._model.summary()
+        if self._debug:
+            self._model.summary()
 
         if self._model_path is not None:
             self.load_model(self._model_path)
@@ -140,7 +141,6 @@ class QLearningAgent(Agent):
         if np.random.rand() > self.epsilon and self._training_model:
             action = np.random.choice(np.arange(self.num_outputs))
         self._current_action = action
-        print("Current Action:", action, "Current Reward:", reward, "Choices:", actions)
         return [action]
 
     def _get_reward(self, reward_collision, wall_collision):

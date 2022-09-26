@@ -1,13 +1,8 @@
-from abc import ABC
-
-import numpy as np
-
 from agent import Agent, GameControlDriver
-from simulation import Simulation, DefaultSimulation
+from simulation import Simulation, CarTestSimulation
 from vehicle import Vehicle, SensorBuilder, Car
 from qlearn import QLearningAgent
-from pygame import (K_UP, K_DOWN, K_LEFT, K_RIGHT, transform)
-import os
+from os.path import join
 
 
 def main():
@@ -18,7 +13,7 @@ def main():
         normalize=True
     )
 
-    simulation = DefaultSimulation(
+    simulation = CarTestSimulation(
         debug=False,
         fps=35,  # None means simulation fps is not tracked (Suggested for training)
         num_episodes=None,
@@ -28,6 +23,12 @@ def main():
         screen_size=(1400, 800),
         track_size=(1400, 800)
     )
+    simulation.set_track_paths(
+        join("assets", "track-border.png"),
+        join("assets", "track.png"),
+        join("assets", "track-rewards.png")
+    )
+    simulation.set_start_pos(start_pos=(875, 100))
     # Create Sensors
     sb = SensorBuilder(
         sim=simulation,
@@ -55,8 +56,8 @@ def main():
             batch_size=64,
             replay_mem_max=400,
             save_after=100,
-            load_latest_model=False,
-            training_model=True,
+            load_latest_model=True,
+            training_model=False,
             model_path=None,
             train_each_step=False,
             debug=False,
@@ -66,13 +67,14 @@ def main():
     }
 
     # Change this line to select different drivers
-    driver = driver_map['user']
+    driver = driver_map['qlearn']
 
     # sensors = sb.generate_sensors([0])
     # Attach sensors to car
     car.init_sensors(sensors=sensors)
     # Throw driver in the vehicle
     car.driver = driver
+    simulation.initialize()
     simulation.simulate()
 
 

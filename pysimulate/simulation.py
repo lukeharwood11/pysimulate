@@ -31,8 +31,6 @@ class Simulation(ABC):
         :param num_episodes: the number of episodes (crashes) before the simulation dies
                             - None if the src runs forever
         """
-        pygame.init()
-
         # private attributes
         self._screen_dim = screen_size
         self._track_dim = track_size
@@ -83,11 +81,15 @@ class Simulation(ABC):
         self.car = car
         self._car_top_distance = 0
 
+    def initialize(self):
+        pygame.init()
+        assert self.start_pos is not None
+        assert self.car is not None
+        assert self.car.driver is not None
         # handle init
         self.init_display()
         self.init_iteration_count_label()
         self.init_fps_label()
-        self.init_car_start_pos()
         self.init_car_label()
         self.init_car_stat_labels()
         self.convert_images()  # initializes the track
@@ -97,15 +99,7 @@ class Simulation(ABC):
                                     color=(255, 255, 255), refresh_count=None, background=None, anti_alias=True)
         # Position is arbitrary as it will be moved
         self.car_speed_label = Label(position=(0, 0), text=" PPF", size=40, font=None,
-                                 color=(0, 0, 0), refresh_count=None, background=None, anti_alias=True)
-
-    @abstractmethod
-    def init_car_start_pos(self):
-        """
-        sets the start position of the car
-        :return:
-        """
-        pass
+                                     color=(0, 0, 0), refresh_count=None, background=None, anti_alias=True)
 
     @abstractmethod
     def init_track(self) -> (str, str, str):
@@ -125,6 +119,7 @@ class Simulation(ABC):
         :return:
         """
         border, track, rewards = self.init_track()
+        assert border is not None and track is not None and rewards is not None
         self._track_border = pygame.image.load(border)
         self._track_border = pygame.transform.smoothscale(self._track_border, self._track_dim).convert_alpha()
         self._track_bg = pygame.image.load(track).convert()
@@ -148,7 +143,7 @@ class Simulation(ABC):
         :return: The absolute position of the image of the vehicle (in relation to the window)
         """
         return np.array((self.car.velocity.x + (self.car.image.get_width() / 2) + 12,
-                  self.car.velocity.y + (self.car.image.get_height() / 2) + 12))
+                         self.car.velocity.y + (self.car.image.get_height() / 2) + 12))
 
     def init_display(self):
         if self._caption is None:
@@ -164,7 +159,7 @@ class Simulation(ABC):
 
     def init_iteration_count_label(self):
         self.iteration_count_label = Label((1100, 10), "Iteration: ", size=30, font=None, color=(0, 0, 0),
-                                   background=(255, 255, 255), anti_alias=True)
+                                           background=(255, 255, 255), anti_alias=True)
 
     def simulate(self):
         """
@@ -314,7 +309,8 @@ class Simulation(ABC):
     def display_sensor_values(self, start_pos: (int, int)):
         pass
 
-class DefaultSimulation(Simulation, ABC):
+
+class CarTestSimulation(Simulation, ABC):
 
     def __init__(self,
                  debug=True,
@@ -325,7 +321,7 @@ class DefaultSimulation(Simulation, ABC):
                  track_offset=(0, 0),
                  screen_size=(1400, 800),
                  track_size=(1400, 800)):
-        super(DefaultSimulation, self).__init__(debug=debug,
+        super(CarTestSimulation, self).__init__(debug=debug,
                                                 fps=fps,
                                                 num_episodes=num_episodes,
                                                 caption=caption,
@@ -333,13 +329,32 @@ class DefaultSimulation(Simulation, ABC):
                                                 track_offset=track_offset,
                                                 screen_size=screen_size,
                                                 track_size=track_size)
+        self.border_path = None
+        self.track_path = None
+        self.rewards_path = None
 
-    def init_car_start_pos(self):
+    def set_track_paths(self, border_path, track_path, rewards_path):
+        """
+        Initialize the paths to the track images
+        :param border_path:
+        :param track_path:
+        :param rewards_path:
+        :return:
+        """
+        self.border_path = border_path
+        self.track_path = track_path
+        self.rewards_path = rewards_path
+
+    def set_start_pos(self, start_pos=None, x=None, y=None):
         """
         sets the start position of the car
         :return:
         """
-        self.start_pos = (875, 100)
+        assert start_pos is not None or (x is not None and y is not None)
+        if start_pos is not None:
+            self.start_pos = start_pos
+        else:
+            self.start_pos = (x, y)
 
     def update_and_display_arrow_display(self):
         self.arrow_display.render(
@@ -355,8 +370,4 @@ class DefaultSimulation(Simulation, ABC):
         - track rewards
         :return: the path to the tracks in the order 'border, background (design), rewards'
         """
-        return \
-            os.path.join("assets", "track-border.png"), \
-            os.path.join("assets", "track.png"), \
-            os.path.join("assets", "track-rewards.png")
-
+        return self.border_path, self.track_path, self.rewards_path

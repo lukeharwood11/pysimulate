@@ -21,12 +21,12 @@ setup(
     license="MIT",
     classifiers=classifiers,
     command_options={},
-    python_requires="==3.7",
+    python_requires=">=3.7",
     install_requires=[
         "numpy",
-        "pygame>=2.1.2",
+        "pygame",
         "sklearn",
         "scikit-learn",
-        "tensorflow==2.7.0",
+        "tensorflow>=2.0.0",
     ]
 )
