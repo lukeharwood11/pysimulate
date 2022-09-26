@@ -27,10 +27,10 @@ class Event:
 
 class EventManager:
 
-    def __init__(self):
-        pass
+    def __init__(self, document):
+        self.document = document
 
-    def fire(self):
+    def fire(self, event):
         pass
 
 class Document:
@@ -145,6 +145,7 @@ class App:
 
         self.window = self.init_window()
         self.document = Document(self.window)
+        self.event_manager = EventManager(self.document)
 
         self.fps = fps
         self.running_fps = 0
@@ -194,7 +195,7 @@ class App:
                     running = False
                     for save in self._on_close:
                         save.func(self) if save.requires_app else save.func()
-                if event.type == pygame.MOUSEBUTTONUP:
+
 
             if self.fps is not None:
                 self.clock.tick(self.fps)

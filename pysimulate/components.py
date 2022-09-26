@@ -16,6 +16,27 @@ class ElementType(Enum):
     BUTTON = 1
 
 
+class Action:
+
+    def __init__(self, event_type, func, active=True):
+        self.event_type = event_type
+        self.func = func
+        self.active = active
+
+
+class ActionSubscription:
+
+    def __init__(self, event_type, active=True):
+        self.event_type = event_type
+        self.actions = []
+        self.active = active
+
+    def run(self):
+        for i in self.actions:
+            if i.active:
+                i.func()
+
+
 class Element:
 
     def __init__(self, top=0, left=0, width=0, height=0, element_id=None, class_name=None):
@@ -26,9 +47,11 @@ class Element:
         self.y = 0
         self.type_name = ElementType.ELEMENT
         self.class_name = class_name
+        self.parent_element = None
         self.id = element_id
         self.rect = pygame.Rect(left, top, width, height)
         self.surface = pygame.Surface((self.rect.w, self.rect.h))
+        self.subscriptions = {}  # dict holding all subscriptions
         # private attributes
         self._children = []
         self._elements = {}
@@ -117,6 +140,9 @@ class Element:
             for element in self._children:
                 element.remove_child(element)
         return None
+
+    def subscribe_to_event(self, event_type, action):
+        pass
 
 
 class ArrowKeysDisplay:
