@@ -31,6 +31,16 @@ class Element:
         self.surface = pygame.Surface((self.rect.w, self.rect.h))
         # private attributes
         self._children = []
+        self._elements = {}
+        self._num_children = 0
+
+        self._child_id = 0
+
+    def set_child_id(self, child_id):
+        self._child_id = child_id
+
+    def get_child_id(self):
+        return self._child_id
 
     def is_root(self):
         return self.id == 'root'
@@ -39,13 +49,74 @@ class Element:
         pass
 
     def render(self, app):
+        """
+        Render the given element
+        :param app:
+        :return:
+        """
         self.update(app)
         app.window.blit(self.surface, (self.x, self.y))
         for c in self._children:
             c.render(app.window)
 
     def append_child(self, element):
+        """
+        Append the child to the element
+        :param element: the element to add
+        :return: None
+        """
         self._children.append(element)
+        if element.id is not None:
+            assert self._elements.get(
+                element.id) is None, "Illegal Operation: Attempting to add element with duplicate id: {}".format(
+                element.id)
+            self._child_id = self._num_children
+            self._elements[element] = element
+        self._num_children += 1
+
+    def remove_child(self, element):
+        """
+        Remove a child given the object
+        :param element: child
+        :return: None
+        """
+        assert element.id is not None, "Element must contain an id"
+        if self._elements.get(element.id) is not None:
+            element = self._elements.pop(element.id)
+            self._children.pop(element.get_child_id())
+            self._num_children -= 1
+        else:
+            for element in self._children:
+                element.remove_child(element)
+
+    def remove_child_by_id(self, element_id):
+        """
+        Remove a given child using its id
+        :param element_id: child id
+        :return: None
+        """
+        assert element_id is not None, "Element must contain an id"
+        if self._elements.get(element_id) is not None:
+            element = self._elements.pop(element_id)
+            self._children.pop(element.get_child_id())
+            self._num_children -= 1
+        else:
+            for element in self._children:
+                element.remove_child(element)
+
+    def get_element_by_id(self, element_id):
+        """
+        Return an element matching the given id
+        :param element_id:
+        :return:
+        """
+        assert element_id is not None, "get_element_by_id() called with argument: [None]"
+        if self._elements.get(element_id) is not None:
+            return self._elements.get(element_id)
+        else:
+            for element in self._children:
+                element.remove_child(element)
+        return None
 
 
 class ArrowKeysDisplay:

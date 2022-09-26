@@ -17,6 +17,21 @@ class AppFunction:
         self.func = func
         self.requires_app = requires_app
 
+class Event:
+
+    def __init__(self, event_type):
+        self.type = event_type
+
+    def consume(self):
+        pass
+
+class EventManager:
+
+    def __init__(self):
+        pass
+
+    def fire(self):
+        pass
 
 class Document:
 
@@ -27,12 +42,24 @@ class Document:
         self._elements["root"] = Element(element_id="root")
 
     def get_root_element(self):
+        """
+        :return: the root element
+        """
         return self._elements["root"]
 
     def get_element_by_id(self, element_id):
-        return self._elements.get(id)
+        """
+        :param element_id: the id of the element you are trying to find
+        :return: an element, or None if it doesn't exist
+        """
+        return self._elements.get(element_id)
 
     def get_elements_by_type_name(self, type_name):
+        """
+        Search for elements by Type
+        :param type_name: ElementType of the elements
+        :return: a list of elements, or an empty list if none exist
+        """
         elements = []
         for values in self._elements.values():
             if values.type_name == type_name:
@@ -40,6 +67,10 @@ class Document:
         return elements
 
     def get_elements_by_class_name(self, class_name):
+        """
+        :param class_name: the class name of the elements
+        :return: a list of elements, or an empty list if none exist
+        """
         elements = []
         for values in self._elements.values():
             if values.class_name == class_name:
@@ -47,13 +78,48 @@ class Document:
         return elements
 
     def add_element(self, element):
-        assert self._elements.get(element.id) is None, "Attempting to add element with duplicate id: {}".format(element.id)
+        """
+        Add an element to the root element of the DOM
+        :param element:
+        :return:
+        """
+        assert self._elements.get(element.id) is None, "Illegal Operation: Attempting to add element with duplicate id: {}".format(element.id)
         self._elements[element.id] = element
 
     def remove_element(self, element):
         assert element.id != "root", "Illegal Operation: Attempting to remove the root element."
+        assert element.id is not None, "Element must contain an id"
         if self._elements.get(element.id) is not None:
             self._elements.pop(element.id)
+        else:
+            self.get_root_element().remove_child(element)
+
+    def remove_element_by_id(self, element_id):
+        assert element_id != "root", "Illegal Operation: Attempting to remove the root element."
+        assert element_id is not None, "Element must contain an id"
+        if self._elements.get(element_id) is not None:
+            self._elements.pop(element_id)
+        else:
+            self.get_root_element().remove_child_by_id(element_id)
+
+    def pack(self):
+        """
+        Verifies layout of application and ensures no errors were made when assembling DOM
+        :return: None
+        """
+        pass
+
+    def render(self, application):
+        """
+        render the document model to the pygame window
+        TODO remove application parameter if unneeded
+        :return: None
+        """
+        pass
+
+    @staticmethod
+    def from_file(path):
+        pass
 
 
 class App:
@@ -87,12 +153,8 @@ class App:
         self.caption = caption
         self.current_timestamp = time()
 
-        self._components = []
         self._init = []
         self._on_close = []
-
-    def add_component(self, component):
-        self._components.append(component)
 
     def add_initializer(self, initializer):
         self._init.append(initializer)
@@ -132,8 +194,9 @@ class App:
                     running = False
                     for save in self._on_close:
                         save.func(self) if save.requires_app else save.func()
+                if event.type == pygame.MOUSEBUTTONUP:
+
             if self.fps is not None:
                 self.clock.tick(self.fps)
-            for component in self._components:
-                component.render(self)
+            self.document.render(self)
             pygame.display.update()
