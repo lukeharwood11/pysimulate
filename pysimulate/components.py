@@ -5,31 +5,53 @@ import pygame
 import time
 
 from typing import List
+from enum import Enum
 
 
-class Component:
+class ElementType(Enum):
+    """
+    Enum containing all suppported Element Types
+    """
+    ELEMENT = 0,
+    BUTTON = 1
 
-    def __init__(self):
+
+class Element:
+
+    def __init__(self, top=0, left=0, width=0, height=0, element_id=None, class_name=None):
         """
 
         """
         self.x = 0
         self.y = 0
-        self.rect = None
-        self.surface = None
-        self.components = []
+        self.type_name = ElementType.ELEMENT
+        self.class_name = class_name
+        self.id = element_id
+        self.rect = pygame.Rect(left, top, width, height)
+        self.surface = pygame.Surface((self.rect.w, self.rect.h))
+        # private attributes
+        self._children = []
 
-    def update(self, application):
+    def is_root(self):
+        return self.id == 'root'
+
+    def update(self, app):
         pass
 
     def render(self, app):
         self.update(app)
         app.window.blit(self.surface, (self.x, self.y))
-        for c in self.components:
+        for c in self._children:
             c.render(app.window)
+
+    def append_child(self, element):
+        self._children.append(element)
 
 
 class ArrowKeysDisplay:
+    """
+    @deprecated
+    """
 
     def __init__(self, unselected_color, selected_color, border=None, scale=1, position=None):
         self.position = position
