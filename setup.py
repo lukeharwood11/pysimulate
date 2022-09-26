@@ -13,7 +13,7 @@ setup(
     version="1.1.7",
     description="AI Track Simulator is an easy-to-use Simulator engine built in pygame",
     long_description=long_description,
-    py_modules=["agent", "components", "genetic", "qlearn", "simulation", "utils", "vector2d", "vehicle"],
+    py_modules=["agent", "components", "genetic", "qlearn", "simulation", "utils", "vector2d", "vehicle", "application"],
     long_description_content_type="text/markdown",
     keywords='simulator ai-gym racecar',
     package_dir={'': 'pysimulate'},

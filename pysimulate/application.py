@@ -4,9 +4,6 @@ from time import time
 import pygame
 from utils import calculate_fps
 
-from pysimulate import Component
-
-
 class Initializer:
 
     def __init__(self, func, requires_app=False):
@@ -77,6 +74,7 @@ class App:
         for i in self._init:
             i.func(self) if i.requires_app else i.func()
         while running:
+            self.window.fill((0, 0, 0))
             time_now = time()
             self.running_fps = calculate_fps(time_now - self.current_timestamp)
             self.current_timestamp = time_now
