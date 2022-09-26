@@ -1,8 +1,12 @@
+import os
 from abc import ABC, abstractmethod
 from time import time
 from components import Label, TimedLabelQueue, ArrowKeysDisplay
 import numpy as np
 import pygame
+
+from vehicle import Vehicle
+
 
 class Simulation(ABC):
 

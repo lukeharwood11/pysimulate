@@ -2,15 +2,15 @@ from abc import ABC
 
 import numpy as np
 
-from agent import Agent
-from simulation import Simulation
-from vehicle import Vehicle, SensorBuilder
+from agent import Agent, GameControlDriver
+from simulation import Simulation, DefaultSimulation
+from vehicle import Vehicle, SensorBuilder, Car
 from qlearn import QLearningAgent
 from pygame import (K_UP, K_DOWN, K_LEFT, K_RIGHT, transform)
 import os
 
-def main():
 
+def main():
     car = Car(
         driver=None,
         debug=False,

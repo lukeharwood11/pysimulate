@@ -2,6 +2,8 @@ import numpy as np
 import pygame
 import time
 
+from typing import List
+
 
 class ArrowKeysDisplay:
 
@@ -19,7 +21,7 @@ class ArrowKeysDisplay:
         self._down_key_rect = None
         self.build_model()
 
-    def render(self, window, position, current_actions: list[int]):
+    def render(self, window, position, current_actions: List[int]):
         """
 
         :param window: window to blit model onto

@@ -1,3 +1,4 @@
+import os
 from abc import ABC, abstractmethod
 
 import numpy as np
@@ -6,11 +7,10 @@ from pygame import image, draw
 from pygame.sprite import Sprite
 from pygame import transform
 from sklearn.preprocessing import normalize
+from typing import List
 
 from agent import Agent
 from vector2d import Vector2D, Velocity, Angle
-from simulation import Simulation
-
 
 class Vehicle(ABC):
     """
@@ -96,7 +96,7 @@ class Vehicle(ABC):
         x, y = new_rect.topleft[0] + self.image.get_width() / 2, new_rect.topleft[1] + self.image.get_height() / 2
         window.blit(rotated_image, (x, y))
 
-    def update(self, simulation: Simulation):
+    def update(self, simulation):
         """
         update necessary data and send back to simulation
         :param simulation: the simulation the vehicle exists in
@@ -127,7 +127,7 @@ class Vehicle(ABC):
         """
         self.sensors = sensors
 
-    def update_sensors(self, window, simulation: Simulation):
+    def update_sensors(self, window, simulation):
         """
         Calculate the values for the sensors of the vehicle
         :param window: the pygame window
@@ -195,7 +195,7 @@ class Vehicle(ABC):
         pass
 
     @abstractmethod
-    def reset(self, simulation: Simulation):
+    def reset(self, simulation):
         """
         - Resets the car properties, so it is ready for another episode
         :return: None
@@ -356,7 +356,7 @@ class Car(Vehicle, ABC):
 
 class SensorBuilder:
 
-    def __init__(self, depth: int, sim: Simulation, default_value=None, color=(0, 0, 0), width=2, pointer=True):
+    def __init__(self, depth: int, sim, default_value=None, color=(0, 0, 0), width=2, pointer=True):
         """
         Convenience class for building sensors
         :param depth: the sensor depth
@@ -400,7 +400,7 @@ class SensorBuilder:
         return (car_v.x - self.depth + self.simulation.car.image.get_width() / 2,
                 car_v.y - self.depth + self.simulation.car.image.get_height() / 2)
 
-    def generate_sensors(self, sensor_angles: list[int] = None, sensor_range=None, num_sets=1) -> list:
+    def generate_sensors(self, sensor_angles: List[int] = None, sensor_range=None, num_sets=1) -> list:
         """
         - Generate a cached list of sensors
         :param sensor_range: an optional parameter allowing for sensor values to be defined by a range
@@ -484,7 +484,7 @@ class Sensor:
         self.pointer = pointer
         self.collision_point = None
 
-    def update(self, window: pygame.surface.Surface, simulation: Simulation, car):
+    def update(self, window: pygame.surface.Surface, simulation, car):
         """
         Update the surface and the value of the sensor
         :param window: pygame window

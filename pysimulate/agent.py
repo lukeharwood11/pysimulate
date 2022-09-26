@@ -1,4 +1,6 @@
 from abc import ABC, abstractmethod
+from pygame import K_UP, K_DOWN, K_LEFT, K_RIGHT
+from typing import List
 
 
 class Agent(ABC):
@@ -11,7 +13,7 @@ class Agent(ABC):
     - Abstract agent class
     """
     @abstractmethod
-    def update(self, inputs, reward_collision=False, wall_collision=False, keys_pressed=None) -> list[int]:
+    def update(self, inputs, reward_collision=False, wall_collision=False, keys_pressed=None) -> List[int]:
         """
         - Given input from the simulation make a decision
         :param wall_collision: whether the car collided with the wall
@@ -50,7 +52,7 @@ class GameControlDriver(Agent, ABC):
         """
         super().__init__(num_inputs, num_outputs)
 
-    def update(self, inputs, reward_collision=False, wall_collision=False, keys_pressed=None) -> list[int]:
+    def update(self, inputs, reward_collision=False, wall_collision=False, keys_pressed=None) -> List[int]:
         """
         - Encode the inputs to integers 0 - 3
         :param wall_collision: n/a
