@@ -1,3 +1,4 @@
+import os.path
 from abc import ABC, abstractmethod
 from pygame import K_UP, K_DOWN, K_LEFT, K_RIGHT
 from typing import List
@@ -8,10 +9,12 @@ class Agent(ABC):
     def __init__(self, num_inputs, num_outputs):
         self.num_inputs = num_inputs
         self.num_outputs = num_outputs
+        self.model_dir = None
 
     """
     - Abstract agent class
     """
+
     @abstractmethod
     def update(self, inputs, reward_collision=False, wall_collision=False, keys_pressed=None) -> List[int]:
         """
@@ -41,6 +44,16 @@ class Agent(ABC):
         :return: None
         """
         pass
+
+    def set_model_dir(self, dir, force_create=False):
+        """
+        :param force_create:
+        :param dir:
+        :return:
+        """
+        self.model_dir = dir
+        if force_create and not os.path.exists(dir):
+            os.mkdir(dir)
 
 class GameControlDriver(Agent, ABC):
 

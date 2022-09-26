@@ -68,6 +68,7 @@ def main():
 
     # Change this line to select different drivers
     driver = driver_map['qlearn']
+    driver.set_model_dir(join("assets", "models"))
 
     # sensors = sb.generate_sensors([0])
     # Attach sensors to car
