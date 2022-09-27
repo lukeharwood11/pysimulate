@@ -33,16 +33,16 @@ class EventManager:
         self.document = document
         self._subscriptions = {}
 
-    def add_subscription(self, event_type, element_id):
+    def add_subscription(self, event_type, element):
         if self._subscriptions.get(event_type) is None:
             self._subscriptions[event_type] = []
-        self._subscriptions[event_type].append(element_id)
+        self._subscriptions[event_type].append(element.id)
 
-    def fire(self, event_type):
-        if self._subscriptions.get(event_type) is None:
-            self._subscriptions[event_type] = []
-        for e_id in self._subscriptions[event_type]:
-            self.document.get_element_by_id(e_id).fire_event(event_type)
+    def fire(self, event):
+        if self._subscriptions.get(event.type) is None:
+            self._subscriptions[event.type] = []
+        for e_id in self._subscriptions[event.type]:
+            self.document.get_element_by_id(e_id).fire_event(event)
 
 
 class Document:
@@ -122,13 +122,20 @@ class Document:
         - Ensures that no element_ids are the same
         :return: None
         """
-        pass
+        self._elements = {}
+        for element in self._elements.values():
+            assert self._elements.get(element.id) is None
+            self._elements[element.id] = element
+            element.pack(element)
 
     def manage_event(self, event):
         self._event_manager.fire(event)
 
-    def add_event_listener(self, event_type, element_id):
-        self._event_manager.add_subscription()
+    def add_event_listener(self, event_type, element):
+        if self._elements.get(element.id) is None:
+            # cache the element
+            self._elements[element.id] = element
+        self._event_manager.add_subscription(event_type, element)
 
     def render(self, application):
         """

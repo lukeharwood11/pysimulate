@@ -6,6 +6,7 @@ import time
 
 from typing import List
 from enum import Enum
+from warnings import warn
 
 
 class ElementType(Enum):
@@ -13,7 +14,20 @@ class ElementType(Enum):
     Enum containing all suppported Element Types
     """
     ELEMENT = 0,
-    BUTTON = 1
+    BUTTON = 1,
+    TOGGLE_BUTTON = 2,
+    MENU_BUTTON = 3,
+    MENU_ITEM = 4,
+    DIV = 5
+
+
+class LayoutManager:
+
+    def __init__(self, element):
+        """
+        handles the layout of the given element, along with all other css properties that apply
+        """
+        self.element = element
 
 
 class Action:
@@ -42,14 +56,46 @@ class ActionSubscriptions:
                 i.func()
 
 
+class ElementState:
+
+    def __init__(self, x_pos=0, y_pos=0, width=0, height=0):
+        self._x = x_pos
+        self._y = y_pos
+        self._width = width
+        self._height = height
+
+    def get_x(self):
+        return self._x
+
+    def get_y(self):
+        return self._y
+
+    def get_width(self):
+        return self._width
+
+    def get_height(self):
+        return self._height
+
+    def set_x(self, value, additive=False):
+        self._x = (self._x if additive else 0) + value
+
+    def set_y(self, value, additive=False):
+        self._y = (self._y if additive else 0) + value
+
+    def set_width(self, value, additive=False):
+        self._width = (self._width if additive else 0) + value
+
+    def set_height(self, value, additive=False):
+        self._height = (self._height if additive else 0) + value
+
+
 class Element:
 
     def __init__(self, top=0, left=0, width=0, height=0, element_id=None, class_name=None, dom=None):
         """
 
         """
-        self.x = 0
-        self.y = 0
+        self.state = ElementState(left, top, width, height)
         self.type_name = ElementType.ELEMENT
         self.class_name = class_name
         self.parent_element = None
@@ -57,14 +103,19 @@ class Element:
         self.rect = pygame.Rect(left, top, width, height)
         self.surface = pygame.Surface((self.rect.w, self.rect.h))
         self.action_subscriptions = ActionSubscriptions()  # dict holding all subscriptions
+        self.property_map = {}
         # private attributes
-        if self.id == "root":
-            assert dom is not None, "DOM cannot be None for root element"
-            self.dom = dom
+        self.is_root = False
+        self.document = None
+        self.layout_manager = LayoutManager(self)
+        self.property_map = {
+            "background-color": "white",
+            "color": "black",
+            "overflow": "hide"
+        }
         self._children = []
         self._elements = {}
         self._num_children = 0
-
         self._child_id = 0
 
     def set_child_id(self, child_id):
@@ -72,9 +123,6 @@ class Element:
 
     def get_child_id(self):
         return self._child_id
-
-    def is_root(self):
-        return self.id == 'root'
 
     def update(self, app):
         pass
@@ -154,25 +202,61 @@ class Element:
         self.action_subscriptions.add_subscription(Action(event_type, action))
         self.parent_element.propagate_event_subscription(event_type, self.id)
 
-    def fire_event(self, event_type):
+    def fire_event(self, event):
         """
         Fires an event of type [event_type] for the given element
-        :param event_type:
+        :param event: the event to be fired
         :return:
         """
-        self.action_subscriptions.fire(event_type)
+        self.action_subscriptions.fire(event)
 
-    def propagate_event_subscription(self, event_type, element_id):
+    def propagate_event_subscription(self, event_type, element):
         """
         Propagates an event subscription to the root element
         :param element_id: The element that is assigned to the event
         :param event_type: The type of event that is assigned to the element
         :return:
         """
-        if self.dom is not None:
-            self.dom.add_event_listener(event_type, element_id)
+        if self.is_root:
+            self.document.add_event_listener(event_type, element)
         else:
-            self.parent_element.propagate_event_subscription(event_type, element_id)
+            self.parent_element.propagate_event_subscription(event_type, element)
+
+    def pack(self, elements):
+        for element in self._children:
+            if element.id is None:
+                continue
+            assert elements.get(element.id) is None
+            elements[element.id] = element
+            element.pack(elements)
+
+
+class RootElement(Element):
+
+    def __init__(self, document):
+        super(RootElement, self).__init__()
+        self.is_root = True
+        self.document = document
+
+
+class Div(Element):
+
+    def __init__(self):
+        super(Div, self).__init__()
+        self.type_name = ElementType.DIV
+        self.property_map = {
+            "alignment": "center",
+            "background-color": "white",
+            "color": "black",
+            "border-radius": "0",
+            "border-width": "0"
+        }
+
+    def update(self, app):
+        pass
+
+    def render(self, app):
+        pass
 
 
 class ArrowKeysDisplay:
