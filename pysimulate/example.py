@@ -6,30 +6,33 @@ from agent import Agent
 from simulation import Simulation
 from vehicle import Vehicle, SensorBuilder
 from qlearn import QLearningAgent
-from pygame import (K_UP, K_DOWN, K_LEFT, K_RIGHT, transform)
-from gui.components import TimedLabel, Label
+from pygame import K_UP, K_DOWN, K_LEFT, K_RIGHT, transform
 import os
 
 
 class DefaultSimulation(Simulation, ABC):
 
-    def __init__(self,
-                 debug=True,
-                 fps=None,
-                 num_episodes=None,
-                 caption: str = None,
-                 car: Vehicle = None,
-                 track_offset=(0, 0),
-                 screen_size=(1400, 800),
-                 track_size=(1400, 800)):
-        super(DefaultSimulation, self).__init__(debug=debug,
-                                                fps=fps,
-                                                num_episodes=num_episodes,
-                                                caption=caption,
-                                                car=car,
-                                                track_offset=track_offset,
-                                                screen_size=screen_size,
-                                                track_size=track_size)
+    def __init__(
+        self,
+        debug=True,
+        fps=None,
+        num_episodes=None,
+        caption: str | None = None,
+        car: Vehicle | None = None,
+        track_offset=(0, 0),
+        screen_size=(1400, 800),
+        track_size=(1400, 800),
+    ):
+        super(DefaultSimulation, self).__init__(
+            debug=debug,
+            fps=fps,
+            num_episodes=num_episodes,
+            caption=caption,
+            car=car,
+            track_offset=track_offset,
+            screen_size=screen_size,
+            track_size=track_size,
+        )
 
     def init_car_start_pos(self):
         """
@@ -43,7 +46,7 @@ class DefaultSimulation(Simulation, ABC):
             self.window, (520, 500), current_actions=self.car.current_action
         )
 
-    def init_track(self) -> (str, str, str):
+    def init_track(self) -> tuple[str, str, str]:
         """
         Should set the images of the track (paths to the images):
         called in the constructor of the simulation class
@@ -52,15 +55,18 @@ class DefaultSimulation(Simulation, ABC):
         - track rewards
         :return: the path to the tracks in the order 'border, background (design), rewards'
         """
-        return \
-            os.path.join("assets", "track-border.png"), \
-            os.path.join("assets", "track.png"), \
-            os.path.join("assets", "track-rewards.png")
+        return (
+            os.path.join("assets", "track-border.png"),
+            os.path.join("assets", "track.png"),
+            os.path.join("assets", "track-rewards.png"),
+        )
 
 
 class Car(Vehicle, ABC):
 
-    def __init__(self, driver, debug=False, acceleration_multiplier=.5, normalize=True):
+    def __init__(
+        self, driver, debug=False, acceleration_multiplier=0.5, normalize=True
+    ):
         super(Car, self).__init__(
             num_outputs=5,
             image_path=os.path.join("assets", "grey-car.png"),
@@ -68,7 +74,7 @@ class Car(Vehicle, ABC):
             scale=1,
             debug=debug,
             max_speed=20,
-            normalize=normalize
+            normalize=normalize,
         )
         self.odometer_label = None
         self.speed_label = None
@@ -91,8 +97,12 @@ class Car(Vehicle, ABC):
         """
         :return: The absolute position of the image of the vehicle (in relation to the window)
         """
-        return np.array((self.velocity.x + (self.image.get_width() / 2) + 12,
-                  self.velocity.y + (self.image.get_height() / 2) + 12))
+        return np.array(
+            (
+                self.velocity.x + (self.image.get_width() / 2) + 12,
+                self.velocity.y + (self.image.get_height() / 2) + 12,
+            )
+        )
 
     def configure_image(self):
         self.image = transform.rotate(self.image, -90)
@@ -114,10 +124,7 @@ class Car(Vehicle, ABC):
         :return: None
         """
         self.velocity.reset_velocity(
-            x=simulation.start_pos[0],
-            y=simulation.start_pos[1],
-            angle=180,
-            speed=0
+            x=simulation.start_pos[0], y=simulation.start_pos[1], angle=180, speed=0
         )
         self.odometer = 0
 
@@ -131,9 +138,9 @@ class Car(Vehicle, ABC):
 
     def turn(self, left=False, right=False):
         if left:
-            self.velocity.turn(self.velocity.speed * .6)
+            self.velocity.turn(self.velocity.speed * 0.6)
         if right:
-            self.velocity.turn(self.velocity.speed * -.6)
+            self.velocity.turn(self.velocity.speed * -0.6)
 
     def brake(self):
         """
@@ -156,8 +163,12 @@ class Car(Vehicle, ABC):
         :return: None
         """
         i = self._get_vehicle_input()
-        direction = self.driver.update(inputs=i, wall_collision=collision, reward_collision=reward,
-                                       keys_pressed=keys_pressed)
+        direction = self.driver.update(
+            inputs=i,
+            wall_collision=collision,
+            reward_collision=reward,
+            keys_pressed=keys_pressed,
+        )
         self.current_action = direction
         accel = False
         if direction.count(0) > 0:
@@ -173,7 +184,7 @@ class Car(Vehicle, ABC):
             self.deccelerate()
 
     def deccelerate(self):
-        self.velocity.speed = .98 * self.velocity.speed
+        self.velocity.speed = 0.98 * self.velocity.speed
 
     def get_external_inputs(self):
         """
@@ -185,9 +196,11 @@ class Car(Vehicle, ABC):
         """
         :return: a numpy array of the values from the sensors
         """
-        np_array = np.array([sensor.value for sensor in self.sensors] + [self.velocity.speed])
+        np_array = np.array(
+            [sensor.value for sensor in self.sensors] + [self.velocity.speed]
+        )
         norm = np.linalg.norm(np_array)
-        return np_array/norm if self._normalize else np_array
+        return np_array / norm if self._normalize else np_array
 
 
 class GameControlDriver(Agent, ABC):
@@ -200,7 +213,9 @@ class GameControlDriver(Agent, ABC):
         """
         super().__init__(num_inputs, num_outputs)
 
-    def update(self, inputs, reward_collision=False, wall_collision=False, keys_pressed=None) -> list[int]:
+    def update(
+        self, inputs, reward_collision=False, wall_collision=False, keys_pressed=None
+    ) -> list[int]:
         """
         - Encode the inputs to integers 0 - 3
         :param wall_collision: n/a
@@ -210,9 +225,12 @@ class GameControlDriver(Agent, ABC):
         :return: a list of output encodings (0 - 3) representing requested movement
         """
         print(
-            "collision", wall_collision,
-            "reward_collision", reward_collision,
-            "inputs", inputs
+            "collision",
+            wall_collision,
+            "reward_collision",
+            reward_collision,
+            "inputs",
+            inputs,
         )
         ret = []
         if keys_pressed[K_LEFT]:
@@ -247,19 +265,20 @@ def main():
     car = Car(
         driver=None,
         debug=False,
-        acceleration_multiplier=.5,
+        acceleration_multiplier=0.5,
         normalize=True
     )
 
     simulation = DefaultSimulation(
         debug=False,
-        fps=35,  # None means simulation fps is not tracked (Suggested for training)
+        # None means simulation fps is not tracked (Suggested for training)
+        fps=35,
         num_episodes=None,
         caption="Default Simulation",
         car=car,
         track_offset=(0, 0),
         screen_size=(1400, 800),
-        track_size=(1400, 800)
+        track_size=(1400, 800),
     )
     # Create Sensors
     sb = SensorBuilder(
@@ -268,21 +287,21 @@ def main():
         default_value=None,
         color=(255, 0, 0),
         width=2,
-        pointer=True
+        pointer=True,
     )
     sensors = sb.generate_sensors(sensor_range=(-90, 90, 5))
 
     driver_map = {
-        'user': GameControlDriver(
+        "user": GameControlDriver(
             num_inputs=len(sensors),
             num_outputs=car.num_outputs
         ),
-        'qlearn': QLearningAgent(
+        "qlearn": QLearningAgent(
             simulation=simulation,
             alpha=0.01,
             alpha_decay=0.01,
             y=0.90,
-            epsilon=.98,
+            epsilon=0.98,
             num_sensors=len(sensors),
             num_actions=car.num_outputs,
             batch_size=64,
@@ -294,12 +313,12 @@ def main():
             train_each_step=False,
             debug=False,
             other_inputs=car.get_external_inputs(),
-            timeout=10
-        )
+            timeout=10,
+        ),
     }
 
     # Change this line to select different drivers
-    driver = driver_map['qlearn']
+    driver = driver_map["qlearn"]
 
     # sensors = sb.generate_sensors([0])
     # Attach sensors to car

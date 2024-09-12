@@ -1,4 +1,4 @@
-from math import sin, cos, tan, sqrt, radians, degrees
+from math import sin, cos, tan, sqrt, radians
 import numpy as np
 
 
@@ -86,13 +86,13 @@ class Vector2D:
         self.y = y
 
     def get_magnitude(self):
-        return sqrt(self.x ** 2 + self.y ** 2)
+        return sqrt(self.x**2 + self.y**2)
 
     @staticmethod
     def calc_magnitude(x, y):
-        return sqrt(x ** 2 + y ** 2)
+        return sqrt(x**2 + y**2)
 
-    def distance_between(self, other, offset=np.array([0, 0])) -> float or None:
+    def distance_between(self, other, offset=np.array([0, 0])) -> float | None:
         """
         :param other: Vector
         :param offset: offset of current vector

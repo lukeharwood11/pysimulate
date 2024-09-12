@@ -10,8 +10,11 @@ class Agent(ABC):
     """
     - Abstract agent class
     """
+
     @abstractmethod
-    def update(self, inputs, reward_collision=False, wall_collision=False, keys_pressed=None) -> list[int]:
+    def update(
+        self, inputs, reward_collision=False, wall_collision=False, keys_pressed=None
+    ) -> list[int]:
         """
         - Given input from the simulation make a decision
         :param wall_collision: whether the car collided with the wall

@@ -3,9 +3,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 import pygame
 from pygame import image, draw
-from pygame.sprite import Sprite
 from pygame import transform
-from sklearn.preprocessing import normalize
 
 from agent import Agent
 from vector2d import Vector2D, Velocity, Angle
@@ -18,15 +16,17 @@ class Vehicle(ABC):
     and moving through the simulation
     """
 
-    def __init__(self,
-                 num_outputs: int,
-                 image_path: str = None,
-                 driver: Agent = None,
-                 scale: int = 1,
-                 debug: bool = False,
-                 max_speed: int = 20,
-                 ignore_max_speed: bool = False,
-                 normalize: bool = True):
+    def __init__(
+        self,
+        num_outputs: int,
+        image_path: str | None = None,
+        driver: Agent | None = None,
+        scale: int = 1,
+        debug: bool = False,
+        max_speed: int = 20,
+        ignore_max_speed: bool = False,
+        normalize: bool = True,
+    ):
         # public attributes
         super().__init__()
         self.num_outputs = num_outputs
@@ -57,7 +57,7 @@ class Vehicle(ABC):
         """
         np_array = np.array([sensor.value for sensor in self.sensors])
         norm = np.linalg.norm(np_array)
-        return np_array/norm if self._normalize else np_array
+        return np_array / norm if self._normalize else np_array
 
     def print_sensor_values(self):
         for i, sensor in enumerate(self.sensors):
@@ -79,7 +79,9 @@ class Vehicle(ABC):
         :return: None
         """
         rotated_image = transform.rotate(self.image, angle)
-        new_rect = rotated_image.get_rect(center=self.image.get_rect(topleft=self.rect.topleft).center)
+        new_rect = rotated_image.get_rect(
+            center=self.image.get_rect(topleft=self.rect.topleft).center
+        )
         self._image_angle_cache.append(rotated_image)
 
     def blit_rotate_center(self, window, top_left):
@@ -90,10 +92,17 @@ class Vehicle(ABC):
         :return: None
         """
         # TODO implement cache using angle
-        rotated_image = transform.rotate(self.image, self.velocity.angle.value).convert_alpha()
-        new_rect = rotated_image.get_rect(center=self.image.get_rect(topleft=top_left).center)
+        rotated_image = transform.rotate(
+            self.image, self.velocity.angle.value
+        ).convert_alpha()
+        new_rect = rotated_image.get_rect(
+            center=self.image.get_rect(topleft=top_left).center
+        )
         self.current_image = rotated_image
-        x, y = new_rect.topleft[0] + self.image.get_width() / 2, new_rect.topleft[1] + self.image.get_height() / 2
+        x, y = (
+            new_rect.topleft[0] + self.image.get_width() / 2,
+            new_rect.topleft[1] + self.image.get_height() / 2,
+        )
         window.blit(rotated_image, (x, y))
 
     def update(self, simulation: Simulation):
@@ -105,7 +114,8 @@ class Vehicle(ABC):
         window = simulation.window
         # account for reoccurring events (such as velocity update)
         self.update_pos()
-        self.odometer += self.velocity.speed  # update odometer as the distance moved each step
+        # update odometer as the distance moved each step
+        self.odometer += self.velocity.speed
         self.blit_rotate_center(window, (self.velocity.x, self.velocity.y))
 
     def update_pos(self):
@@ -135,20 +145,37 @@ class Vehicle(ABC):
         :return: None
         """
         # get (x1,y1,x2,y2) tuples for all sensor positions
-        s = [sensor.update(window=window, simulation=simulation, car=self) for sensor in self.sensors]
+        s = [
+            sensor.update(window=window, simulation=simulation, car=self)
+            for sensor in self.sensors
+        ]
         if self._debug:
-            self.display_sensor(car_pos=simulation.get_vehicle_image_position(), window=window)
+            self.display_sensor(
+                car_pos=simulation.get_vehicle_image_position(), window=window
+            )
 
     # TODO: Display cannot just pull from one collision point
     def display_sensor(self, car_pos, window: pygame.surface.Surface):
         for s in self.sensors:
             if s.coords is not None:
-                pygame.draw.line(surface=window,
-                                 color=s.line_color,
-                                 start_pos=(car_pos),
-                                 end_pos=(s.coords[0] if s.collision_point is None else s.collision_point[0],
-                                          s.coords[1] if s.collision_point is None else s.collision_point[1]),
-                                 width=s.line_width)
+                pygame.draw.line(
+                    surface=window,
+                    color=s.line_color,
+                    start_pos=(car_pos),
+                    end_pos=(
+                        (
+                            s.coords[0]
+                            if s.collision_point is None
+                            else s.collision_point[0]
+                        ),
+                        (
+                            s.coords[1]
+                            if s.collision_point is None
+                            else s.collision_point[1]
+                        ),
+                    ),
+                    width=s.line_width,
+                )
 
     @abstractmethod
     def configure_image(self):
@@ -224,7 +251,15 @@ class Vehicle(ABC):
 
 class SensorBuilder:
 
-    def __init__(self, depth: int, sim: Simulation, default_value=None, color=(0, 0, 0), width=2, pointer=True):
+    def __init__(
+        self,
+        depth: int,
+        sim: Simulation,
+        default_value=None,
+        color=(0, 0, 0),
+        width=2,
+        pointer=True,
+    ):
         """
         Convenience class for building sensors
         :param depth: the sensor depth
@@ -240,7 +275,8 @@ class SensorBuilder:
         self.default_value = default_value
         self.num_sensors = -1
         self.masks = []  # list of 359 masks representing all angles
-        self._sensor_position = np.zeros((360, self.depth, 2))  # list of 359 sensor positions
+        # list of 359 sensor positions
+        self._sensor_position = np.zeros((360, self.depth, 2))
         self.sensor_depth_array = np.array([self.depth, self.depth])
         self.mask_debug_images = []
         self.offset = 0, 0
@@ -265,10 +301,14 @@ class SensorBuilder:
         :return: get offset for sensor masks
         """
         car_v = self.simulation.car.velocity
-        return (car_v.x - self.depth + self.simulation.car.image.get_width() / 2,
-                car_v.y - self.depth + self.simulation.car.image.get_height() / 2)
+        return (
+            car_v.x - self.depth + self.simulation.car.image.get_width() / 2,
+            car_v.y - self.depth + self.simulation.car.image.get_height() / 2,
+        )
 
-    def generate_sensors(self, sensor_angles: list[int] = None, sensor_range=None, num_sets=1) -> list:
+    def generate_sensors(
+        self, sensor_angles: list[int] = None, sensor_range=None, num_sets=1
+    ) -> list:
         """
         - Generate a cached list of sensors
         :param sensor_range: an optional parameter allowing for sensor values to be defined by a range
@@ -288,8 +328,14 @@ class SensorBuilder:
                 self.num_sensors = len(sensor_angles)
                 sensors.append(
                     Sensor(
-                        sb=self, sensor_depth=self.depth, angle=angle, default_val=self.default_value,
-                        offset=np.array(self.offset), line_width=self.width, line_color=color, pointer=self.pointer
+                        sb=self,
+                        sensor_depth=self.depth,
+                        angle=angle,
+                        default_val=self.default_value,
+                        offset=np.array(self.offset),
+                        line_width=self.width,
+                        line_color=color,
+                        pointer=self.pointer,
                     )
                 )
             bin.append(sensors)
@@ -310,21 +356,26 @@ class SensorBuilder:
         for angle in range(360):
             a = Angle.create(angle)
             for step in range(self.depth):
-                x, y = Vector2D.point_at_angle(step, angle=a, offset=np.array(self.offset))
+                x, y = Vector2D.point_at_angle(
+                    step, angle=a, offset=np.array(self.offset)
+                )
                 x2, y2 = x, -y
                 self._sensor_position[angle, step] = np.array([x2, y2])
 
 
 class Sensor:
 
-    def __init__(self, sb: SensorBuilder, sensor_depth: int,
-                 angle: int,
-                 default_val: int = None,
-                 offset: np.array = np.array([0, 0]),
-                 line_width: int = 2,
-                 line_color: (int, int, int) = (255, 0, 0),
-                 pointer: bool = False
-                 ):
+    def __init__(
+        self,
+        sb: SensorBuilder,
+        sensor_depth: int,
+        angle: int,
+        default_val: int = None,
+        offset: np.array = np.array([0, 0]),
+        line_width: int = 2,
+        line_color: (int, int, int) = (255, 0, 0),
+        pointer: bool = False,
+    ):
         """
         :param sb: SensorBuilder that created the sensor (issue #12)
         :param sensor_depth: The length of the sensor
@@ -363,7 +414,9 @@ class Sensor:
         # update the value of the surface
         surface = pygame.surface.Surface(window.get_size())
         # coords has a shape of ([sensor_depth], 2)
-        sensor_array = self.sensor_builder.get_sensor_pos(car, car.velocity.angle, Angle(self.angle))
+        sensor_array = self.sensor_builder.get_sensor_pos(
+            car, car.velocity.angle, Angle(self.angle)
+        )
 
         # update the value of the sensor
         self.update_value(sensor_array=sensor_array, simulation=simulation, car=car)
@@ -390,9 +443,12 @@ class Sensor:
         # print("car angle: ", car_v.angle)
         # print("mask angle: ", angle)
         for point in sensor_array:
-            valid_point = 0 <= point[0] < simulation.track_border_width \
-                          and 0 <= point[1] < simulation.track_border_height
-            if not valid_point: continue
+            valid_point = (
+                0 <= point[0] < simulation.track_border_width
+                and 0 <= point[1] < simulation.track_border_height
+            )
+            if not valid_point:
+                continue
             bit = border_mask.get_at((point[0], point[1]))
             if bit == 1:
                 if self.pointer:
@@ -400,8 +456,7 @@ class Sensor:
                     draw.circle(simulation.window, (255, 255, 255), (x, y), 5)
                 self.value = car_v.distance_between(
                     other=Vector2D(x=point[0], y=point[1]),
-                    offset=(car.image.get_width() / 2,
-                            car.image.get_height() / 2)
+                    offset=(car.image.get_width() / 2, car.image.get_height() / 2),
                 )
                 self.collision_point = point
                 break

@@ -5,17 +5,20 @@ from gui.components import Label, TimedLabel, TimedLabelQueue, ArrowKeysDisplay
 import numpy as np
 import pygame
 
+
 class Simulation(ABC):
 
-    def __init__(self,
-                 debug=True,
-                 fps=None,
-                 num_episodes=None,
-                 caption: str = None,
-                 car=None,
-                 track_offset=(0, 0),
-                 screen_size=(1400, 800),
-                 track_size=(1400, 800)):
+    def __init__(
+        self,
+        debug=True,
+        fps=None,
+        num_episodes=None,
+        caption: str = None,
+        car=None,
+        track_offset=(0, 0),
+        screen_size=(1400, 800),
+        track_size=(1400, 800),
+    ):
         """
 
         Simulation should hold only the information relevant to the actual simulation and not any information
@@ -72,7 +75,7 @@ class Simulation(ABC):
             selected_color=(255, 0, 255),
             border=(0, 0, 0),
             scale=1,
-            position=None
+            position=None,
         )
         # this value should be overridden by child class
         self.start_pos = (0, 0)
@@ -90,11 +93,27 @@ class Simulation(ABC):
         self.convert_images()  # initializes the track
 
     def init_car_stat_labels(self):
-        self.odometer_label = Label(position=(600, self._screen_dim[1] - 50), text=" Pixels", size=40, font=None,
-                                    color=(255, 255, 255), refresh_count=None, background=None, anti_alias=True)
+        self.odometer_label = Label(
+            position=(600, self._screen_dim[1] - 50),
+            text=" Pixels",
+            size=40,
+            font=None,
+            color=(255, 255, 255),
+            refresh_count=None,
+            background=None,
+            anti_alias=True,
+        )
         # Position is arbitrary as it will be moved
-        self.car_speed_label = Label(position=(0, 0), text=" PPF", size=40, font=None,
-                                 color=(0, 0, 0), refresh_count=None, background=None, anti_alias=True)
+        self.car_speed_label = Label(
+            position=(0, 0),
+            text=" PPF",
+            size=40,
+            font=None,
+            color=(0, 0, 0),
+            refresh_count=None,
+            background=None,
+            anti_alias=True,
+        )
 
     @abstractmethod
     def init_car_start_pos(self):
@@ -105,7 +124,7 @@ class Simulation(ABC):
         pass
 
     @abstractmethod
-    def init_track(self) -> (str, str, str):
+    def init_track(self) -> tuple[str, str, str]:
         """
         Should set the images of the track (paths to the images):
         called in the constructor of the simulation class
@@ -123,11 +142,17 @@ class Simulation(ABC):
         """
         border, track, rewards = self.init_track()
         self._track_border = pygame.image.load(border)
-        self._track_border = pygame.transform.smoothscale(self._track_border, self._track_dim).convert_alpha()
+        self._track_border = pygame.transform.smoothscale(
+            self._track_border, self._track_dim
+        ).convert_alpha()
         self._track_bg = pygame.image.load(track).convert()
-        self._track_bg = pygame.transform.smoothscale(self._track_bg, self._track_dim).convert()
+        self._track_bg = pygame.transform.smoothscale(
+            self._track_bg, self._track_dim
+        ).convert()
         self._track_rewards = pygame.image.load(rewards)
-        self._track_rewards = pygame.transform.smoothscale(self._track_rewards, self._track_dim).convert_alpha()
+        self._track_rewards = pygame.transform.smoothscale(
+            self._track_rewards, self._track_dim
+        ).convert_alpha()
 
         if self._track_border is not None:
             self.track_border_width = self._track_border.get_width()
@@ -138,30 +163,59 @@ class Simulation(ABC):
             self.rewards_mask = pygame.mask.from_surface(self._track_rewards)
 
     def get_vehicle_offset(self):
-        return None if self.car is None else (self.car.image.get_width() / 2, self.car.image.get_height() / 2)
+        return (
+            None
+            if self.car is None
+            else (self.car.image.get_width() / 2, self.car.image.get_height() / 2)
+        )
 
     def get_vehicle_image_position(self):
         """
         :return: The absolute position of the image of the vehicle (in relation to the window)
         """
-        return np.array((self.car.velocity.x + (self.car.image.get_width() / 2) + 12,
-                  self.car.velocity.y + (self.car.image.get_height() / 2) + 12))
+        return np.array(
+            (
+                self.car.velocity.x + (self.car.image.get_width() / 2) + 12,
+                self.car.velocity.y + (self.car.image.get_height() / 2) + 12,
+            )
+        )
 
     def init_display(self):
         if self._caption is None:
             self._caption = "Racing Simulation"
 
     def init_fps_label(self):
-        self.fps_label = Label((10, 10), "FPS: 0", size=30, font=None, color=(0, 0, 0), background=None,
-                               anti_alias=True)
+        self.fps_label = Label(
+            (10, 10),
+            "FPS: 0",
+            size=30,
+            font=None,
+            color=(0, 0, 0),
+            background=None,
+            anti_alias=True,
+        )
 
     def init_car_label(self):
-        self.car_label = Label((10, self._screen_dim[1] - 40), "Longest Drive: ", size=30, font=None, color=(0, 0, 0),
-                               background=(255, 255, 255), anti_alias=True)
+        self.car_label = Label(
+            (10, self._screen_dim[1] - 40),
+            "Longest Drive: ",
+            size=30,
+            font=None,
+            color=(0, 0, 0),
+            background=(255, 255, 255),
+            anti_alias=True,
+        )
 
     def init_iteration_count_label(self):
-        self.iteration_count_label = Label((1100, 10), "Iteration: ", size=30, font=None, color=(0, 0, 0),
-                                   background=(255, 255, 255), anti_alias=True)
+        self.iteration_count_label = Label(
+            (1100, 10),
+            "Iteration: ",
+            size=30,
+            font=None,
+            color=(0, 0, 0),
+            background=(255, 255, 255),
+            anti_alias=True,
+        )
 
     def simulate(self):
         """
@@ -232,13 +286,23 @@ class Simulation(ABC):
     def update_and_display_labels(self):
         self.fps_label.append_text(str(self._calc_fps), self._calc_fps / 2)
         self._car_top_distance = max(self._car_top_distance, self.car.odometer)
-        self.car_label.append_text(str(round(self._car_top_distance)), refresh_count=None)
-        self.car_speed_label.append_text(str(round(self.car.velocity.speed)), self._calc_fps / 2, append_to_front=True)
-        self.odometer_label.append_text(str(round(self.car.odometer)), refresh_count=None, append_to_front=True)
+        self.car_label.append_text(
+            str(round(self._car_top_distance)), refresh_count=None
+        )
+        self.car_speed_label.append_text(
+            str(round(self.car.velocity.speed)),
+            self._calc_fps / 2,
+            append_to_front=True,
+        )
+        self.odometer_label.append_text(
+            str(round(self.car.odometer)), refresh_count=None, append_to_front=True
+        )
         self.iteration_count_label.append_text(str(self._iteration_num))
         self.iteration_count_label.render(self.window)
         self.car_label.render(self.window)
-        self.car_speed_label.render(self.window, position=(self.car.velocity.x + 10, self.car.velocity.y - 40))
+        self.car_speed_label.render(
+            self.window, position=(self.car.velocity.x + 10, self.car.velocity.y - 40)
+        )
         self.odometer_label.render(self.window)
         self.fps_label.render(self.window)
         self.label_manager.render()
@@ -278,12 +342,16 @@ class Simulation(ABC):
         Only works if the track_border is not None
         :return: whether the vehicle hit a wall
         """
-        if self._track_border is not None \
-                and self.car is not None \
-                and self.car.current_image is not None:
+        if (
+            self._track_border is not None
+            and self.car is not None
+            and self.car.current_image is not None
+        ):
             car_mask = pygame.mask.from_surface(self.car.image)
-            x, y = (self.car.velocity.x + (.5 * self.car.image.get_width()),
-                    self.car.velocity.y + (.5 * self.car.image.get_height()))
+            x, y = (
+                self.car.velocity.x + (0.5 * self.car.image.get_width()),
+                self.car.velocity.y + (0.5 * self.car.image.get_height()),
+            )
             col = self.border_mask.overlap(car_mask, (x, y))
             if col is not None:
                 return True
@@ -294,9 +362,11 @@ class Simulation(ABC):
         Only works if the track_rewards is not None
         :return: whether the vehicle is touching a reward
         """
-        if self._track_rewards is not None \
-                and self.car is not None \
-                and self.car.current_image is not None:
+        if (
+            self._track_rewards is not None
+            and self.car is not None
+            and self.car.current_image is not None
+        ):
             car_mask = pygame.mask.from_surface(self.car.image)
             car_pos = self.get_vehicle_image_position()
             col = self.rewards_mask.overlap(car_mask, (car_pos[0], car_pos[1]))

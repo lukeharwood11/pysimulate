@@ -1,7 +1,5 @@
-setuptools==61.2.0
-numpy==1.22.4
-pygame>=2.1.2
-sklearn
-scikit-learn==1.1.2
-tensorflow>=2.7.0
-keras>=2.7.0
+pygame
+tensorflow; sys_platform == 'darwin'
+tensorflow-cpu; sys_platform != 'darwin'
+numpy
+scikit-learn

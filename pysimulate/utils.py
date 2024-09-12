@@ -4,10 +4,10 @@ import numpy as np
 
 
 class LogLevel(Enum):
-    DEBUG = 0,
-    TRACE = 1,
-    WARNING = 2,
-    ERROR = 3,
+    DEBUG = (0,)
+    TRACE = (1,)
+    WARNING = (2,)
+    ERROR = (3,)
     FATAL = 4
 
 
