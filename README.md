@@ -1,8 +1,5 @@
 # pysimulate
 
-```
-pip install pysimulate
-```
 ## Purpose
 
 This project provides a framework to build a simulator to test different agents in a simple environment. This allows you to control the inputs/outputs of the system in python and hotswap the 'drivers' to the vehicles.
@@ -28,11 +25,9 @@ Same applies to building a custom vehicle from `vehicle.py` or using the `Defaul
 
 **Luke Harwood** 
 
-_lukeharwood11@gmail.com_
+_lukeharwood.dev@gmail.com_
 
-_harwoodl@msoe.edu_ 
-
-_www.lukeharwood.dev_
+_lukeharwood.dev_
 
 Created on 05/24/2022
 
